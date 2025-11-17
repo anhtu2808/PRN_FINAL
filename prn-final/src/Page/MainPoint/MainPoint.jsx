@@ -357,7 +357,9 @@ const MainPoint = () => {
       setSimilarityResult(null);
       
       // Bước 1: Similarity check - chia threshold cho 100 để chuyển từ % sang decimal
-      const thresholdDecimal = plagiarismThreshold / 100;
+      // Nếu threshold là empty hoặc không hợp lệ, dùng giá trị mặc định 30
+      const thresholdValue = (plagiarismThreshold === "" || isNaN(plagiarismThreshold)) ? 30 : plagiarismThreshold;
+      const thresholdDecimal = thresholdValue / 100;
       const result = await handleSimilarityCheck(docFileId, thresholdDecimal);
       setSimilarityResult(result);
       // Lưu vào sessionStorage
@@ -1153,9 +1155,21 @@ const MainPoint = () => {
                         className="form-control"
                         value={plagiarismThreshold}
                         onChange={(e) => {
-                          const value = parseFloat(e.target.value);
-                          if (!isNaN(value) && value >= 1 && value <= 100) {
-                            setPlagiarismThreshold(value);
+                          const inputValue = e.target.value;
+                          // Cho phép xóa (empty string) hoặc giá trị hợp lệ
+                          if (inputValue === "" || inputValue === null) {
+                            setPlagiarismThreshold("");
+                          } else {
+                            const value = parseFloat(inputValue);
+                            if (!isNaN(value) && value >= 1 && value <= 100) {
+                              setPlagiarismThreshold(value);
+                            }
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Khi blur, nếu empty thì set về giá trị mặc định
+                          if (e.target.value === "" || isNaN(parseFloat(e.target.value))) {
+                            setPlagiarismThreshold(30);
                           }
                         }}
                         placeholder="30"
