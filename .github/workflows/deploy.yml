@@ -9,6 +9,7 @@ jobs:
   build-and-deploy:
     name: Build and Deploy PRN Final
     runs-on: ubuntu-latest
+    environment: PROD
     
     defaults:
       run:
