@@ -40,7 +40,7 @@ const MainPoint = () => {
   // States for plagiarism check
   const [docFileId, setDocFileId] = useState(null);
   const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
-  const [plagiarismThreshold, setPlagiarismThreshold] = useState(0.3);
+  const [plagiarismThreshold, setPlagiarismThreshold] = useState(30); // Nhập từ 1-100, chia 100 khi gửi API
   const [checkingPlagiarism, setCheckingPlagiarism] = useState(false);
   const [similarityResult, setSimilarityResult] = useState(null);
 
@@ -356,8 +356,9 @@ const MainPoint = () => {
       setCheckingPlagiarism(true);
       setSimilarityResult(null);
       
-      // Bước 1: Similarity check
-      const result = await handleSimilarityCheck(docFileId, plagiarismThreshold);
+      // Bước 1: Similarity check - chia threshold cho 100 để chuyển từ % sang decimal
+      const thresholdDecimal = plagiarismThreshold / 100;
+      const result = await handleSimilarityCheck(docFileId, thresholdDecimal);
       setSimilarityResult(result);
       // Lưu vào sessionStorage
       sessionStorage.setItem(`plagiarismResult_${docFileId}`, JSON.stringify(result));
@@ -1141,23 +1142,23 @@ const MainPoint = () => {
                   <div className="mb-4">
                     <label className="form-label fw-semibold mb-2">
                       <i className="bi bi-percent me-2"></i>
-                      Ngưỡng phần trăm trùng bài (0.0 - 1.0):
+                      Ngưỡng phần trăm trùng bài (1 - 100):
                     </label>
                     <div className="d-flex gap-2">
                       <input
                         type="number"
-                        step="0.1"
-                        min="0"
-                        max="1"
+                        step="1"
+                        min="1"
+                        max="100"
                         className="form-control"
                         value={plagiarismThreshold}
                         onChange={(e) => {
                           const value = parseFloat(e.target.value);
-                          if (!isNaN(value) && value >= 0 && value <= 1) {
+                          if (!isNaN(value) && value >= 1 && value <= 100) {
                             setPlagiarismThreshold(value);
                           }
                         }}
-                        placeholder="0.3"
+                        placeholder="30"
                         disabled={checkingPlagiarism}
                         style={{ maxWidth: "200px" }}
                       />
@@ -1180,7 +1181,7 @@ const MainPoint = () => {
                       </button>
                     </div>
                     <small className="text-muted">
-                      Nhập ngưỡng từ 0.0 đến 1.0. Ví dụ: 0.3 = 30% trùng
+                      Nhập ngưỡng từ 1 đến 100. Ví dụ: 30 = 30% trùng
                     </small>
                   </div>
                 )}
@@ -1296,7 +1297,7 @@ const MainPoint = () => {
                       <div className="text-center py-4">
                         <i className="bi bi-check-circle text-success" style={{ fontSize: "48px" }}></i>
                         <p className="text-success mt-3 fw-bold">Không phát hiện đạo văn!</p>
-                        <p className="text-muted">Không có cặp bài nào vượt quá ngưỡng {plagiarismThreshold * 100}%</p>
+                        <p className="text-muted">Không có cặp bài nào vượt quá ngưỡng {plagiarismThreshold}%</p>
                       </div>
                     )}
                   </div>
