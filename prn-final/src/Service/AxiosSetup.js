@@ -1,13 +1,31 @@
 import axios from "axios";
 
+// Đảm bảo baseURL luôn có /api ở cuối
+const getBaseURL = () => {
+  const envURL = import.meta.env.VITE_API_BASE_URL;
+  console.log("VITE_API_BASE_URL from env:", envURL);
+  
+  if (envURL) {
+    // Nếu đã có /api ở cuối thì giữ nguyên, nếu không thì thêm vào
+    const finalURL = envURL.endsWith('/api') ? envURL : `${envURL}/api`;
+    console.log("Final baseURL:", finalURL);
+    return finalURL;
+  }
+  // Default: localhost cho development
+  const defaultURL = "http://localhost:5064/api";
+  console.log("Using default baseURL:", defaultURL);
+  return defaultURL;
+};
+
+const baseURL = getBaseURL();
 const axiosInstance = axios.create({
-  // baseURL: "https://swd-grading.anhtudev.cloud/api",
-  // baseURL: "http://localhost:5064/api",
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:5173/api",
+  baseURL: baseURL,
   headers: {
     "Content-Type": "application/json",
   },
 });
+
+console.log("Axios instance created with baseURL:", axiosInstance.defaults.baseURL);
 
 // Request interceptor
 axiosInstance.interceptors.request.use(
