@@ -2,14 +2,14 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import axiosInstance from "../../Service/AxiosSetup";
 import GradingSidebar from "./GradingSidebar";
-import { 
-  Layout, 
-  Button, 
-  Modal, 
-  List, 
-  Badge, 
-  Typography, 
-  Space, 
+import {
+  Layout,
+  Button,
+  Modal,
+  List,
+  Badge,
+  Typography,
+  Space,
   Spin,
   Empty,
   InputNumber,
@@ -40,7 +40,7 @@ const MainPoint = () => {
   const examStudentId = searchParams.get("examStudentId");
   const statusFilter = searchParams.get("status");
   const openPlagiarism = searchParams.get("openPlagiarism");
-  
+
   const [student, setStudent] = useState(null);
   const [students, setStudents] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -58,7 +58,7 @@ const MainPoint = () => {
   const [questions, setQuestions] = useState([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [comment, setComment] = useState("");
-  
+
   // States for grade management
   const [gradeId, setGradeId] = useState(null);
   const [gradeDetailsMap, setGradeDetailsMap] = useState({});
@@ -66,7 +66,7 @@ const MainPoint = () => {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const debounceTimerRef = useRef({});
-  
+
   // States for plagiarism check
   const [docFileId, setDocFileId] = useState(null);
   const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
@@ -151,8 +151,9 @@ const MainPoint = () => {
       try {
         setLoadingExam(true);
         const res = await axiosInstance.get(`/exams/${examId}`);
-        if (res.data && res.data.data && res.data.data.description) {
-          setExamDescription(res.data.data.description);
+        if (res.data && res.data.data && res.data.data.examPaper) {
+          console.log("Exam paper URL:", res.data.data.examPaper);
+          setExamDescription(res.data.data.examPaper);
         }
         setLoadingExam(false);
       } catch (err) {
@@ -215,15 +216,15 @@ const MainPoint = () => {
       const res = await axiosInstance.get(`/Grade/GetByExamStudentId/${examStudentIdParam}`, {
         params: { PageIndex: 1, PageSize: 12 },
       });
-      
+
       if (res.data && res.data.data && res.data.data.result && res.data.data.result.length > 0) {
         const history = res.data.data.result;
         setGradeHistory(history);
-        
+
         const latestGrade = history[history.length - 1];
         const gradeIdFromResponse = latestGrade.id;
         setGradeId(gradeIdFromResponse);
-        
+
         return { gradeId: gradeIdFromResponse, history };
       }
       setGradeHistory([]);
@@ -238,26 +239,26 @@ const MainPoint = () => {
   const fetchGradeDetails = async (gradeIdParam) => {
     try {
       const res = await axiosInstance.get(`/Grade/${gradeIdParam}`);
-      
+
       if (res.data && res.data.data) {
         if (res.data.data.comment) {
           setComment(res.data.data.comment);
         }
-        
+
         if (res.data.data.details) {
           const detailsMap = {};
           const scoresMap = {};
-          
+
           res.data.data.details.forEach((detail) => {
             detailsMap[detail.rubricId] = detail.id;
             if (detail.score !== null && detail.score !== undefined) {
               scoresMap[detail.rubricId] = detail.score.toString();
             }
           });
-          
+
           setGradeDetailsMap(detailsMap);
           setScore(scoresMap);
-          
+
           return detailsMap;
         }
       }
@@ -290,7 +291,7 @@ const MainPoint = () => {
       const res = await axiosInstance.get(`/Grade/GetByExamStudentId/${examStudentIdParam}`, {
         params: { PageIndex: 1, PageSize: 12 },
       });
-      
+
       if (res.data && res.data.data && res.data.data.result && res.data.data.result.length > 0) {
         const latestGrade = res.data.data.result[res.data.data.result.length - 1];
         return latestGrade.id;
@@ -323,7 +324,7 @@ const MainPoint = () => {
     try {
       setCheckingPlagiarism(true);
       setSimilarityResult(null);
-      
+
       const thresholdValue = (plagiarismThreshold === "" || isNaN(plagiarismThreshold)) ? 30 : plagiarismThreshold;
       const thresholdDecimal = thresholdValue / 100;
       const result = await handleSimilarityCheck(docFileId, thresholdDecimal);
@@ -445,17 +446,17 @@ const MainPoint = () => {
         attempt: gradeHistory.length > 0 ? gradeHistory.length + 1 : 1,
         status: 1
       };
-      
+
       if (student && student.status === "PARSED" && gradeId) {
         await axiosInstance.put(`/grade/${gradeId}`, payload);
       } else {
         payload.status = 1;
         await axiosInstance.post("/Grade", payload);
       }
-      
+
       await fetchGradeHistory(examStudentId);
       await fetchStudentData();
-      
+
       setSaveMessage("success");
       setTimeout(() => setSaveMessage(""), 3000);
     } catch (err) {
@@ -518,16 +519,16 @@ const MainPoint = () => {
   return (
     <Layout style={{ minHeight: '100vh' }}>
       {/* Header */}
-      <Header style={{ 
-        background: '#fff', 
-        padding: '0 24px', 
-        display: 'flex', 
-        alignItems: 'center', 
+      <Header style={{
+        background: '#fff',
+        padding: '0 24px',
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'space-between',
         boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
       }}>
         <Space size="middle" align="center">
-          <Button 
+          <Button
             icon={<ArrowLeftOutlined />}
             onClick={() => {
               const statusParam = statusFilter ? `&status=${statusFilter}` : "";
@@ -559,9 +560,9 @@ const MainPoint = () => {
             )}
           </div>
         </Space>
-        
+
         <Space size="middle">
-          <Button 
+          <Button
             icon={<SafetyOutlined />}
             onClick={() => {
               setShowPlagiarismModal(true);
@@ -571,7 +572,7 @@ const MainPoint = () => {
           >
             Check đạo văn
           </Button>
-          <Button 
+          <Button
             icon={<HistoryOutlined />}
             onClick={async () => {
               setShowHistoryModal(true);
@@ -584,7 +585,7 @@ const MainPoint = () => {
           </Button>
           <Space>
             <Tooltip title="Bài trước">
-              <Button 
+              <Button
                 shape="circle"
                 icon={<LeftOutlined />}
                 onClick={handlePrev}
@@ -592,7 +593,7 @@ const MainPoint = () => {
               />
             </Tooltip>
             <Tooltip title="Bài tiếp theo">
-              <Button 
+              <Button
                 type="primary"
                 shape="circle"
                 icon={<RightOutlined />}
@@ -606,14 +607,14 @@ const MainPoint = () => {
 
       <Layout>
         {/* Sidebar - Barem */}
-        <Sider 
+        <Sider
           width={isBaremCollapsed ? 60 : 400}
           theme="light"
           collapsible
           collapsed={isBaremCollapsed}
           onCollapse={setIsBaremCollapsed}
           trigger={null}
-          style={{ 
+          style={{
             background: '#fff',
             borderRight: '1px solid #f0f0f0',
             overflow: 'auto',
@@ -643,10 +644,10 @@ const MainPoint = () => {
         {/* Main Content - Document Viewer */}
         <Content style={{ background: '#fff' }}>
           {loading ? (
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
               justifyContent: 'center',
               minHeight: 400
             }}>
@@ -654,14 +655,14 @@ const MainPoint = () => {
               <Text type="secondary" style={{ marginTop: 16 }}>Đang tải bài làm...</Text>
             </div>
           ) : error ? (
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
               justifyContent: 'center',
               minHeight: 400
             }}>
-              <Empty 
+              <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description={<Text type="danger">{error}</Text>}
               >
@@ -692,13 +693,14 @@ const MainPoint = () => {
       <Modal
         title={<><FileTextOutlined /> Đề bài</>}
         open={showDescriptionModal}
+        centered       // <-- giúp modal nằm giữa màn hình
+        width="75vw"   // <-- modal rộng 75% màn hình
         onCancel={() => setShowDescriptionModal(false)}
         footer={[
           <Button key="close" onClick={() => setShowDescriptionModal(false)}>
             Đóng
           </Button>
         ]}
-        width={800}
       >
         {loadingExam ? (
           <div style={{ textAlign: 'center', padding: '40px 0' }}>
@@ -708,9 +710,27 @@ const MainPoint = () => {
             </div>
           </div>
         ) : examDescription ? (
-          <Paragraph style={{ whiteSpace: 'pre-wrap', padding: 16, background: '#fafafa', borderRadius: 8 }}>
-            {examDescription}
-          </Paragraph>
+          <div
+            style={{
+              width: '100%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              padding: 16,
+              background: '#fafafa',
+              borderRadius: 8,
+            }}
+          >
+            <img
+              src={examDescription}
+              alt="Đề bài"
+              style={{
+                width: '100%',
+                height: 'auto',
+                borderRadius: 8,
+                display: 'block',
+              }}
+            />
+          </div>
         ) : (
           <Empty description="Không có đề bài" />
         )}
@@ -743,7 +763,7 @@ const MainPoint = () => {
             renderItem={(grade, index) => (
               <List.Item
                 key={grade.id}
-                style={{ 
+                style={{
                   cursor: 'pointer',
                   padding: 16,
                   border: '1px solid #f0f0f0',
@@ -764,8 +784,8 @@ const MainPoint = () => {
                   setShowHistoryModal(false);
                 }}
                 actions={[
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     size="small"
                     icon={<EyeOutlined />}
                     onClick={async (e) => {
@@ -782,7 +802,7 @@ const MainPoint = () => {
                   title={
                     <Space>
                       <Badge count={`Lần ${index + 1}`} style={{ backgroundColor: '#1890ff' }} />
-                      <Badge 
+                      <Badge
                         status={grade.status === "GRADED" ? "success" : "default"}
                         text={grade.status === "GRADED" ? "Đã chấm" : grade.status}
                       />
@@ -822,8 +842,8 @@ const MainPoint = () => {
           }
         }}
         footer={[
-          <Button 
-            key="close" 
+          <Button
+            key="close"
             onClick={() => {
               setShowPlagiarismModal(false);
               setSimilarityResult(null);
@@ -859,7 +879,7 @@ const MainPoint = () => {
                 disabled={checkingPlagiarism}
                 style={{ width: 200 }}
               />
-              <Button 
+              <Button
                 type="primary"
                 onClick={handleCheckPlagiarism}
                 loading={checkingPlagiarism}
@@ -926,8 +946,8 @@ const MainPoint = () => {
                     }}
                     onClick={() => handleSelectPair(pair)}
                     actions={[
-                      <Button 
-                        type="primary" 
+                      <Button
+                        type="primary"
                         size="small"
                         icon={<EyeOutlined />}
                         onClick={(e) => {
@@ -943,7 +963,7 @@ const MainPoint = () => {
                       title={
                         <Space>
                           <Badge count={`Cặp #${index + 1}`} style={{ backgroundColor: '#ff4d4f' }} />
-                          <Badge 
+                          <Badge
                             count={`${(pair.similarityScore * 100).toFixed(2)}%`}
                             style={{ backgroundColor: '#faad14' }}
                           />
