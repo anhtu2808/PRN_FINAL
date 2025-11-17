@@ -1,106 +1,27 @@
-/* Header Buttons */
-.mainpoint-btn-back {
-  border-radius: 10px;
-  padding: 8px 16px;
-  font-weight: 600;
+/* Custom styles for MainPoint component */
+/* Most styling is now handled by Ant Design */
+
+/* Ensure smooth transitions */
+* {
+  transition-property: background-color, border-color, transform;
+  transition-duration: 0.3s;
+  transition-timing-function: ease-in-out;
 }
 
-.mainpoint-btn-nav {
-  border-radius: 10px;
-  padding: 8px 20px;
-  font-weight: 600;
+/* Custom scrollbar for sidebar */
+.ant-layout-sider::-webkit-scrollbar {
+  width: 6px;
 }
 
-/* Header Title */
-.mainpoint-header-title {
-  color: #333;
+.ant-layout-sider::-webkit-scrollbar-track {
+  background: #f0f0f0;
 }
 
-/* Progress Bar */
-.mainpoint-progress {
-  width: 200px;
-  height: 8px;
+.ant-layout-sider::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 3px;
 }
 
-/* Section Icons */
-.mainpoint-section-icon {
-  font-size: 24px;
+.ant-layout-sider::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
 }
-
-/* Section Titles */
-.mainpoint-section-title {
-  color: #333;
-}
-
-/* Form Labels */
-.mainpoint-label {
-  color: #555;
-}
-
-.mainpoint-star-icon {
-  color: #ffc107;
-}
-
-/* Input Icons */
-.mainpoint-input-icon {
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #888;
-  z-index: 10;
-}
-
-/* Input Fields */
-.mainpoint-input {
-  border-radius: 10px;
-  border: 2px solid #e0e0e0;
-  padding: 12px;
-  transition: all 0.3s;
-}
-
-.mainpoint-input:focus {
-  border-color: #0d6efd;
-  outline: none;
-}
-
-/* Alerts */
-.mainpoint-alert {
-  border-radius: 10px;
-}
-
-/* Save Button */
-.mainpoint-btn-save {
-  border-radius: 10px;
-  padding: 12px;
-  font-size: 16px;
-  transition: all 0.3s;
-}
-
-/* Loading Container */
-.mainpoint-loading-container {
-  min-height: 400px;
-}
-
-.mainpoint-spinner {
-  width: 3rem;
-  height: 3rem;
-}
-
-/* Exercise Content */
-.mainpoint-exercise-content {
-  background: #f8f9fa;
-  border: 2px solid #e9ecef;
-  min-height: 400px;
-  line-height: 1.8;
-}
-
-/* Empty State */
-.mainpoint-empty-icon {
-  font-size: 48px;
-  color: #ccc;
-}
-
-.mainpoint-empty-container {
-  min-height: 400px;
-}
-
