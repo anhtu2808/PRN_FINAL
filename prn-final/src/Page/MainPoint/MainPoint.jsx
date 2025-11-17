@@ -491,7 +491,14 @@ const MainPoint = () => {
         status: 1
       };
       
-      await axiosInstance.post("/Grade", payload);
+      // Nếu status là PARSED và có gradeId, dùng PUT để update
+      if (student && student.status === "PARSED" && gradeId) {
+        await axiosInstance.put(`/grade/${gradeId}`, payload);
+      } else {
+        // Nếu không phải PARSED hoặc chưa có gradeId, dùng POST để tạo mới
+        payload.status = 1;
+        await axiosInstance.post("/Grade", payload);
+      }
       
       // Refresh lịch sử sau khi lưu
       await fetchGradeHistory(examStudentId);
