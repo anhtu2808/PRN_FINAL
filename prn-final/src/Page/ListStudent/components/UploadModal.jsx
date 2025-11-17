@@ -184,6 +184,11 @@ const ZipPanel = (props) => {
     fakeProgress,
   } = props;
 
+  const displayPercent = Math.min(
+    Math.max(fakeProgress || 0, progress || 0),
+    100
+  );
+
   return (
     <Space direction="vertical" style={{ width: "100%" }} size="large">
       {!canUpload && (
@@ -204,13 +209,23 @@ const ZipPanel = (props) => {
       {success && <Alert type="success" message={success} showIcon />}
       {loading && progress > 0 && progress < 100 && <Progress percent={progress} status="active" />}
 
-      {(isPolling || fakeProgress > 0) && (
+      {(isPolling || fakeProgress > 0 || displayPercent > 0) && (
         <Space direction="vertical" style={{ width: "100%" }}>
           <Typography.Text strong>Đang xử lý file...</Typography.Text>
           <Progress
-            percent={Math.min(fakeProgress || progress || 0, 100)}
-            status={fakeProgress >= 100 ? "success" : "active"}
+            percent={displayPercent}
+            status={displayPercent >= 100 ? "success" : "active"}
           />
+          {processingStatus && (
+            <Typography.Text type="secondary">
+              Đã xử lý: {processingStatus.processedCount} file
+            </Typography.Text>
+          )}
+          {!processingStatus && displayPercent > 0 && (
+            <Typography.Text type="secondary">
+              Đang xử lý khoảng {displayPercent}% (ước tính)
+            </Typography.Text>
+          )}
           {processingStatus?.parseSummary && (
             <Typography.Text type="secondary" style={{ whiteSpace: "pre-wrap" }}>
               {processingStatus.parseSummary}

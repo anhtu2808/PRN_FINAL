@@ -166,36 +166,33 @@ const ListStudent = () => {
   }, []);
 
   useEffect(() => {
-    if (isPolling && !fakeProgressIntervalRef.current) {
+    if (isPolling) {
       fakeProgressIntervalRef.current = setInterval(() => {
         setFakeZipProgress((prev) => {
-          if (prev < 25) return 25;
-          if (prev < 50) return 50;
-          if (prev < 75) return 75;
-          return prev;
+          if (prev >= 75) return prev;
+          return Math.min(prev + 1, 75);
         });
-      }, 40000);
-    }
-
-    if (!isPolling) {
-      if (fakeProgressIntervalRef.current) {
-        clearInterval(fakeProgressIntervalRef.current);
-        fakeProgressIntervalRef.current = null;
-      }
+      }, 1500);
+    } else if (fakeProgressIntervalRef.current) {
+      clearInterval(fakeProgressIntervalRef.current);
+      fakeProgressIntervalRef.current = null;
     }
 
     return () => {
-      if (!isPolling && fakeProgressIntervalRef.current) {
+      if (fakeProgressIntervalRef.current) {
         clearInterval(fakeProgressIntervalRef.current);
         fakeProgressIntervalRef.current = null;
       }
     };
   }, [isPolling]);
 
+
   const handleCloseUploadModal = () => {
     if (!descriptionLoading && !detailsLoading && !zipLoading && !isPolling) {
       setShowUploadModal(false);
       setFakeZipProgress(0);
+    } else if (!descriptionLoading && !detailsLoading && !zipLoading) {
+      setShowUploadModal(false);
     }
   };
 
@@ -475,7 +472,7 @@ const ListStudent = () => {
   const startPolling = (zipId) => {
     setIsPolling(true);
     setZipLoading(false);
-    setFakeZipProgress((prev) => (prev < 25 ? 25 : prev));
+    setFakeZipProgress((prev) => (prev > 0 ? prev : 1));
     
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
@@ -643,7 +640,11 @@ const ListStudent = () => {
             onUploadClick={() => {
               setShowUploadModal(true);
               setUploadSection(null);
-              setFakeZipProgress(0);
+              if (isPolling) {
+                setFakeZipProgress((prev) => (prev >= 50 ? prev : 50));
+              } else {
+                setFakeZipProgress(0);
+              }
             }}
             onBack={() => navigate("/point-list")}
           />
