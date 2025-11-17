@@ -795,7 +795,8 @@ const ListStudent = () => {
                   }}
                   onClick={() => {
                     if (student.docFiles && student.docFiles.length > 0) {
-                      navigate(`/main-point?examId=${examId}&examStudentId=${student.examStudentId}`);
+                      const statusParam = activeStatus !== "ALL" ? `&status=${activeStatus}` : "";
+                      navigate(`/main-point?examId=${examId}&examStudentId=${student.examStudentId}${statusParam}`);
                     }
                   }}
                   onMouseEnter={(e) => {
@@ -886,7 +887,8 @@ const ListStudent = () => {
                 }}
                 onClick={() => {
                   if (student.docFiles && student.docFiles.length > 0) {
-                    navigate(`/main-point?examId=${examId}&examStudentId=${student.examStudentId}`);
+                    const statusParam = activeStatus !== "ALL" ? `&status=${activeStatus}` : "";
+                    navigate(`/main-point?examId=${examId}&examStudentId=${student.examStudentId}${statusParam}`);
                   }
                 }}
                 onMouseEnter={(e) => {

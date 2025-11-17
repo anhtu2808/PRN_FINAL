@@ -17,6 +17,11 @@ const Login = () => {
         password,
       });
       if (response.status === 200) {
+        // Lưu token vào localStorage
+        const token = response.data?.data?.token || response.data?.token;
+        if (token) {
+          localStorage.setItem("token", token);
+        }
         navigate("/point-list");
       }
     } catch (err) {

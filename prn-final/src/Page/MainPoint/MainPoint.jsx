@@ -8,6 +8,8 @@ const MainPoint = () => {
   const navigate = useNavigate();
   const examId = searchParams.get("examId");
   const examStudentId = searchParams.get("examStudentId");
+  const statusFilter = searchParams.get("status"); // Lấy status filter từ URL
+  const openPlagiarism = searchParams.get("openPlagiarism"); // Kiểm tra có cần mở modal không
   
   const [student, setStudent] = useState(null);
   const [students, setStudents] = useState([]);
@@ -34,6 +36,13 @@ const MainPoint = () => {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const debounceTimerRef = useRef({}); // Map rubricId -> timer
+  
+  // States for plagiarism check
+  const [docFileId, setDocFileId] = useState(null);
+  const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
+  const [plagiarismThreshold, setPlagiarismThreshold] = useState(0.3);
+  const [checkingPlagiarism, setCheckingPlagiarism] = useState(false);
+  const [similarityResult, setSimilarityResult] = useState(null);
 
   useEffect(() => {
     const fetchStudent = async () => {
@@ -63,10 +72,20 @@ const MainPoint = () => {
         });
 
         if (res.data && res.data.data && res.data.data.result) {
-          // Filter lại để chỉ lấy students có status PARSED hoặc GRADED và có docFiles
-          const studentsList = res.data.data.result.filter(
-            (s) => (s.status === "PARSED" || s.status === "GRADED") && s.docFiles && s.docFiles.length > 0
-          );
+          // Filter lại theo status filter từ URL
+          // Nếu có statusFilter, chỉ lấy students có status đó
+          // Nếu không có statusFilter, lấy cả PARSED và GRADED (backward compatibility)
+          let studentsList;
+          if (statusFilter && (statusFilter === "PARSED" || statusFilter === "GRADED")) {
+            studentsList = res.data.data.result.filter(
+              (s) => s.status === statusFilter && s.docFiles && s.docFiles.length > 0
+            );
+          } else {
+            // Nếu không có statusFilter hoặc statusFilter không hợp lệ, lấy cả PARSED và GRADED
+            studentsList = res.data.data.result.filter(
+              (s) => (s.status === "PARSED" || s.status === "GRADED") && s.docFiles && s.docFiles.length > 0
+            );
+          }
           setStudents(studentsList);
           setTotalItems(studentsList.length);
 
@@ -79,11 +98,21 @@ const MainPoint = () => {
           }
 
           if (foundStudent) {
-            // Kiểm tra status - cho phép PARSED và GRADED
-            if (foundStudent.status !== "PARSED" && foundStudent.status !== "GRADED") {
-              setError("Học sinh này chưa được phân tích (status không phải PARSED hoặc GRADED).");
-              setLoading(false);
-              return;
+            // Kiểm tra status
+            // Nếu có statusFilter, kiểm tra status phải khớp
+            if (statusFilter && (statusFilter === "PARSED" || statusFilter === "GRADED")) {
+              if (foundStudent.status !== statusFilter) {
+                setError(`Học sinh này không có status ${statusFilter}.`);
+                setLoading(false);
+                return;
+              }
+            } else {
+              // Nếu không có statusFilter, cho phép PARSED và GRADED
+              if (foundStudent.status !== "PARSED" && foundStudent.status !== "GRADED") {
+                setError("Học sinh này chưa được phân tích (status không phải PARSED hoặc GRADED).");
+                setLoading(false);
+                return;
+              }
             }
 
             // Kiểm tra docFiles
@@ -101,9 +130,10 @@ const MainPoint = () => {
             if (foundIndex !== -1) {
               setStudent(foundStudent);
               setCurrentIndex(foundIndex);
-              // Lấy filePath từ phần tử cuối cùng của docFiles
+              // Lấy filePath và docFileId từ phần tử cuối cùng của docFiles
               const lastFile = foundStudent.docFiles[foundStudent.docFiles.length - 1];
               setFilePath(lastFile.filePath);
+              setDocFileId(lastFile.id || lastFile.docFileId);
             } else {
               setError("Không tìm thấy học sinh trong danh sách có thể chấm.");
             }
@@ -122,7 +152,7 @@ const MainPoint = () => {
     };
 
     fetchStudent();
-  }, [examId, examStudentId]);
+  }, [examId, examStudentId, statusFilter]);
 
   // Fetch exam description
   useEffect(() => {
@@ -175,6 +205,26 @@ const MainPoint = () => {
 
     fetchQuestions();
   }, [examId]);
+
+  // Tự động mở modal plagiarism khi quay lại từ trang chi tiết
+  useEffect(() => {
+    if (openPlagiarism === "1" && docFileId) {
+      setShowPlagiarismModal(true);
+      // Load lại similarityResult từ sessionStorage nếu có
+      const savedResult = sessionStorage.getItem(`plagiarismResult_${docFileId}`);
+      if (savedResult) {
+        try {
+          const parsedResult = JSON.parse(savedResult);
+          setSimilarityResult(parsedResult);
+        } catch (err) {
+          console.error("Lỗi parse saved result:", err);
+        }
+      }
+      // Xóa query parameter để không mở lại khi refresh
+      const statusParam = statusFilter ? `&status=${statusFilter}` : "";
+      navigate(`/main-point?examId=${examId}&examStudentId=${examStudentId}${statusParam}`, { replace: true });
+    }
+  }, [openPlagiarism, docFileId, examId, examStudentId, statusFilter, navigate]);
 
   // Fetch grade history from examStudentId
   const fetchGradeHistory = async (examStudentIdParam) => {
@@ -280,6 +330,55 @@ const MainPoint = () => {
       console.error("Lỗi fetch gradeId:", err);
       return null;
     }
+  };
+
+
+  const handleSimilarityCheck = async (docFileIdParam, threshold) => {
+    try {
+      const res = await axiosInstance.post(`/docfile/${docFileIdParam}/similarity-check`, {
+        threshold: threshold
+      });
+      return res.data?.data || res.data;
+    } catch (err) {
+      console.error("Lỗi similarity check:", err);
+      throw err;
+    }
+  };
+
+
+  const handleCheckPlagiarism = async () => {
+    if (!docFileId) {
+      alert("Không tìm thấy docFileId");
+      return;
+    }
+
+    try {
+      setCheckingPlagiarism(true);
+      setSimilarityResult(null);
+      
+      // Bước 1: Similarity check
+      const result = await handleSimilarityCheck(docFileId, plagiarismThreshold);
+      setSimilarityResult(result);
+      // Lưu vào sessionStorage
+      sessionStorage.setItem(`plagiarismResult_${docFileId}`, JSON.stringify(result));
+    } catch (err) {
+      console.error("Lỗi check đạo văn:", err);
+      alert("Có lỗi xảy ra khi kiểm tra đạo văn. Vui lòng thử lại.");
+    } finally {
+      setCheckingPlagiarism(false);
+    }
+  };
+
+
+  const handleSelectPair = (pair) => {
+    // Lưu similarityResult vào sessionStorage trước khi navigate
+    if (similarityResult) {
+      sessionStorage.setItem(`plagiarismResult_${docFileId}`, JSON.stringify(similarityResult));
+    }
+    // Navigate đến trang chi tiết với thông tin cặp
+    const pairData = encodeURIComponent(JSON.stringify(pair));
+    const statusParam = statusFilter ? `&status=${statusFilter}` : "";
+    navigate(`/plagiarism-detail?examId=${examId}&examStudentId=${examStudentId}&similarityResultId=${pair.resultId}&pairData=${pairData}${statusParam}`);
   };
 
   // Load grade from history (for modal)
@@ -418,7 +517,8 @@ const MainPoint = () => {
     if (currentIndex < students.length - 1) {
       const nextStudent = students[currentIndex + 1];
       if (nextStudent && (nextStudent.status === "PARSED" || nextStudent.status === "GRADED") && nextStudent.docFiles && nextStudent.docFiles.length > 0) {
-        navigate(`/main-point?examId=${examId}&examStudentId=${nextStudent.examStudentId}`);
+        const statusParam = statusFilter ? `&status=${statusFilter}` : "";
+        navigate(`/main-point?examId=${examId}&examStudentId=${nextStudent.examStudentId}${statusParam}`);
         setScore({});
         setComment("");
         setSaveMessage("");
@@ -430,7 +530,8 @@ const MainPoint = () => {
     if (currentIndex > 0) {
       const prevStudent = students[currentIndex - 1];
       if (prevStudent && (prevStudent.status === "PARSED" || prevStudent.status === "GRADED") && prevStudent.docFiles && prevStudent.docFiles.length > 0) {
-        navigate(`/main-point?examId=${examId}&examStudentId=${prevStudent.examStudentId}`);
+        const statusParam = statusFilter ? `&status=${statusFilter}` : "";
+        navigate(`/main-point?examId=${examId}&examStudentId=${prevStudent.examStudentId}${statusParam}`);
         setScore({});
         setComment("");
         setSaveMessage("");
@@ -452,7 +553,10 @@ const MainPoint = () => {
         <div className="d-flex align-items-center gap-3">
           <button
             className="btn btn-outline-secondary mainpoint-btn-back"
-            onClick={() => navigate(`/list-student?examId=${examId}`)}
+            onClick={() => {
+              const statusParam = statusFilter ? `&status=${statusFilter}` : "";
+              navigate(`/list-student?examId=${examId}${statusParam}`);
+            }}
             title="Quay lại danh sách học sinh"
           >
             <i className="bi bi-arrow-left me-1"></i>
@@ -470,6 +574,18 @@ const MainPoint = () => {
           </div>
         </div>
         <div className="d-flex gap-2">
+          <button
+            className="btn btn-outline-warning mainpoint-btn-nav"
+            onClick={() => {
+              setShowPlagiarismModal(true);
+              setSimilarityResult(null);
+            }}
+            title="Kiểm tra đạo văn"
+            disabled={!docFileId}
+          >
+            <i className="bi bi-shield-check me-1"></i>
+            Check đạo văn
+          </button>
           <button
             className="btn btn-outline-info mainpoint-btn-nav"
             onClick={async () => {
@@ -977,6 +1093,217 @@ const MainPoint = () => {
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => setShowHistoryModal(false)}
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Plagiarism Check Modal */}
+      {showPlagiarismModal && (
+        <div
+          className="modal show d-block"
+          tabIndex="-1"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !checkingPlagiarism) {
+              setShowPlagiarismModal(false);
+            }
+          }}
+        >
+          <div className="modal-dialog modal-xl modal-dialog-scrollable" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content" style={{ borderRadius: "12px" }}>
+              <div className="modal-header border-bottom">
+                <h5 className="modal-title fw-bold">
+                  <i className="bi bi-shield-check text-warning me-2"></i>
+                  Kiểm tra đạo văn
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowPlagiarismModal(false)}
+                  disabled={checkingPlagiarism}
+                ></button>
+              </div>
+              <div className="modal-body p-4">
+                {/* Input threshold và nút check */}
+                {!similarityResult && (
+                  <div className="mb-4">
+                    <label className="form-label fw-semibold mb-2">
+                      <i className="bi bi-percent me-2"></i>
+                      Ngưỡng phần trăm trùng bài (0.0 - 1.0):
+                    </label>
+                    <div className="d-flex gap-2">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="1"
+                        className="form-control"
+                        value={plagiarismThreshold}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value);
+                          if (!isNaN(value) && value >= 0 && value <= 1) {
+                            setPlagiarismThreshold(value);
+                          }
+                        }}
+                        placeholder="0.3"
+                        disabled={checkingPlagiarism}
+                        style={{ maxWidth: "200px" }}
+                      />
+                      <button
+                        className="btn btn-warning"
+                        onClick={handleCheckPlagiarism}
+                        disabled={checkingPlagiarism || !docFileId}
+                      >
+                        {checkingPlagiarism ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm me-2"></span>
+                            Đang kiểm tra...
+                          </>
+                        ) : (
+                          <>
+                            <i className="bi bi-search me-2"></i>
+                            Kiểm tra
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <small className="text-muted">
+                      Nhập ngưỡng từ 0.0 đến 1.0. Ví dụ: 0.3 = 30% trùng
+                    </small>
+                  </div>
+                )}
+
+                {/* Kết quả kiểm tra */}
+                {checkingPlagiarism && (
+                  <div className="text-center py-4">
+                    <div className="spinner-border text-warning mb-3" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
+                    <p className="text-muted">Đang kiểm tra đạo văn...</p>
+                  </div>
+                )}
+
+                {similarityResult && (
+                  <div>
+                    {/* Thông tin tổng quan */}
+                    <div className="alert alert-info mb-4">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <div>
+                          <strong>
+                            <i className="bi bi-info-circle me-2"></i>
+                            Kết quả kiểm tra:
+                          </strong>
+                          <div className="mt-2">
+                            <small>
+                              Tổng số cặp đã kiểm tra: <strong>{similarityResult.totalPairsChecked || 0}</strong>
+                            </small>
+                            <br />
+                            <small>
+                              Số cặp nghi ngờ: <strong className="text-danger">{similarityResult.suspiciousPairsCount || 0}</strong>
+                            </small>
+                          </div>
+                        </div>
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => {
+                            setSimilarityResult(null);
+                          }}
+                        >
+                          <i className="bi bi-arrow-counterclockwise me-1"></i>
+                          Kiểm tra lại
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Hiển thị danh sách các cặp nghi ngờ */}
+                    {similarityResult.suspiciousPairs && similarityResult.suspiciousPairs.length > 0 ? (
+                      <div className="list-group">
+                        {similarityResult.suspiciousPairs.map((pair, index) => (
+                          <div
+                            key={index}
+                            className="list-group-item border rounded-3 mb-2 shadow-sm"
+                            style={{
+                              transition: "all 0.3s",
+                              borderWidth: "1px",
+                              cursor: "pointer",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = "#f8f9fa";
+                              e.currentTarget.style.borderColor = "#0d6efd";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = "#fff";
+                              e.currentTarget.style.borderColor = "#dee2e6";
+                            }}
+                            onClick={() => handleSelectPair(pair)}
+                          >
+                            <div className="d-flex justify-content-between align-items-center">
+                              <div className="flex-grow-1">
+                                <div className="d-flex align-items-center gap-2 mb-2">
+                                  <span className="badge bg-danger">Cặp #{index + 1}</span>
+                                  <span className="badge bg-warning">
+                                    Độ tương đồng: {(pair.similarityScore * 100).toFixed(2)}%
+                                  </span>
+                                </div>
+                                <div className="row">
+                                  <div className="col-md-6">
+                                    <small className="text-muted d-block">
+                                      <strong>Học sinh 1:</strong> {pair.student1Code}
+                                    </small>
+                                    <small className="text-muted d-block">
+                                      <strong>File:</strong> {pair.docFile1Name}
+                                    </small>
+                                  </div>
+                                  <div className="col-md-6">
+                                    <small className="text-muted d-block">
+                                      <strong>Học sinh 2:</strong> {pair.student2Code}
+                                    </small>
+                                    <small className="text-muted d-block">
+                                      <strong>File:</strong> {pair.docFile2Name}
+                                    </small>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="ms-3">
+                                <button
+                                  className="btn btn-sm btn-primary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectPair(pair);
+                                  }}
+                                >
+                                  <i className="bi bi-eye me-1"></i>
+                                  Xem chi tiết
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4">
+                        <i className="bi bi-check-circle text-success" style={{ fontSize: "48px" }}></i>
+                        <p className="text-success mt-3 fw-bold">Không phát hiện đạo văn!</p>
+                        <p className="text-muted">Không có cặp bài nào vượt quá ngưỡng {plagiarismThreshold * 100}%</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer border-top">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowPlagiarismModal(false);
+                    setSimilarityResult(null);
+                  }}
+                  disabled={checkingPlagiarism}
                 >
                   Đóng
                 </button>

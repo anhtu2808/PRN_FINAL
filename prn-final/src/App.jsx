@@ -6,6 +6,7 @@ import PointTurn from "./Page/PointTurn/PointTurn";
 import PointList from "./Page/PointList/PointList";
 import PointTurnDetail from "./Page/PointTurnDetail/PointTurnDetail";
 import ListStudent from "./Page/ListStudent/ListStudent";
+import PlagiarismDetail from "./Page/PlagiarismDetail/PlagiarismDetail";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route path="/point-turn-detail" element={<PointTurnDetail />} />
         <Route path="/list-student" element={<ListStudent />} />
         <Route path="/main-point" element={<MainPoint />} />
+        <Route path="/plagiarism-detail" element={<PlagiarismDetail />} />
       </Routes>
     </Router>
   );

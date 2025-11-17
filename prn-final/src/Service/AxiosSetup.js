@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: "https://localhost:7084/api",
+  // baseURL: "https://swd-grading.anhtudev.cloud/api",
+  baseURL: "http://localhost:5064/api",
   headers: {
     "Content-Type": "application/json",
   },
@@ -14,7 +15,13 @@ axiosInstance.interceptors.request.use(
     if (config.data instanceof FormData) {
       delete config.headers["Content-Type"];
     }
-    // Có thể thêm token hoặc các headers khác ở đây
+    
+    // Thêm token vào header nếu có
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
     return config;
   },
   (error) => {
@@ -28,6 +35,15 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   (error) => {
+    // Xử lý lỗi 401 (Unauthorized) - token hết hạn hoặc không hợp lệ
+    if (error.response && error.response.status === 401) {
+      // Xóa token khỏi localStorage
+      localStorage.removeItem("token");
+      // Redirect về trang login nếu không phải đang ở trang login
+      if (window.location.pathname !== "/" && window.location.pathname !== "/login") {
+        window.location.href = "/";
+      }
+    }
     return Promise.reject(error);
   }
 );
