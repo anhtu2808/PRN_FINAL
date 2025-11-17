@@ -38,7 +38,7 @@ const ListStudent = () => {
 
   // Upload Modal States
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadSection, setUploadSection] = useState("description");
+  const [uploadSection, setUploadSection] = useState(null);
   const [excelUploaded, setExcelUploaded] = useState(false); // Track if Excel is uploaded
   
   // Exam Zips history states
@@ -71,6 +71,9 @@ const ListStudent = () => {
   const [processingStatus, setProcessingStatus] = useState(null);
   const [isPolling, setIsPolling] = useState(false);
   const pollingIntervalRef = useRef(null);
+  const [fakeZipProgress, setFakeZipProgress] = useState(0);
+  const fakeProgressIntervalRef = useRef(null);
+  const fakeProgressFinishTimeoutRef = useRef(null);
 
   // Hàm fetch tổng số items mà không thay đổi view hiện tại
   const fetchTotalItems = async () => {
@@ -151,8 +154,65 @@ const ListStudent = () => {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+      if (fakeProgressIntervalRef.current) {
+        clearInterval(fakeProgressIntervalRef.current);
+        fakeProgressIntervalRef.current = null;
+      }
+      if (fakeProgressFinishTimeoutRef.current) {
+        clearTimeout(fakeProgressFinishTimeoutRef.current);
+        fakeProgressFinishTimeoutRef.current = null;
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (isPolling && !fakeProgressIntervalRef.current) {
+      fakeProgressIntervalRef.current = setInterval(() => {
+        setFakeZipProgress((prev) => {
+          if (prev < 25) return 25;
+          if (prev < 50) return 50;
+          if (prev < 75) return 75;
+          return prev;
+        });
+      }, 40000);
+    }
+
+    if (!isPolling) {
+      if (fakeProgressIntervalRef.current) {
+        clearInterval(fakeProgressIntervalRef.current);
+        fakeProgressIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (!isPolling && fakeProgressIntervalRef.current) {
+        clearInterval(fakeProgressIntervalRef.current);
+        fakeProgressIntervalRef.current = null;
+      }
+    };
+  }, [isPolling]);
+
+  const handleCloseUploadModal = () => {
+    if (!descriptionLoading && !detailsLoading && !zipLoading && !isPolling) {
+      setShowUploadModal(false);
+      setFakeZipProgress(0);
+    }
+  };
+
+  const finishFakeProgress = () => {
+    if (fakeProgressIntervalRef.current) {
+      clearInterval(fakeProgressIntervalRef.current);
+      fakeProgressIntervalRef.current = null;
+    }
+    setFakeZipProgress((prev) => (prev < 80 ? 80 : prev));
+    if (fakeProgressFinishTimeoutRef.current) {
+      clearTimeout(fakeProgressFinishTimeoutRef.current);
+    }
+    fakeProgressFinishTimeoutRef.current = setTimeout(() => {
+      setFakeZipProgress(100);
+      fakeProgressFinishTimeoutRef.current = null;
+    }, 800);
+  };
 
   // Fetch exam zips history
   useEffect(() => {
@@ -415,6 +475,7 @@ const ListStudent = () => {
   const startPolling = (zipId) => {
     setIsPolling(true);
     setZipLoading(false);
+    setFakeZipProgress((prev) => (prev < 25 ? 25 : prev));
     
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
@@ -450,9 +511,9 @@ const ListStudent = () => {
       setIsPolling(false);
       setZipLoading(false);
       setZipSuccess("Xử lý file ZIP thành công!");
+      finishFakeProgress();
       setTimeout(() => {
-        setShowUploadModal(false); // Đóng modal
-        // Refresh danh sách học sinh
+        handleCloseUploadModal();
         window.location.reload();
       }, 2000);
       return false;
@@ -471,6 +532,7 @@ const ListStudent = () => {
         errorMessage += `\nHọc sinh không tìm thấy: ${statusData.failedStudents.join(", ")}`;
       }
       setZipError(errorMessage);
+      setFakeZipProgress(0);
       return false;
     }
     return true;
@@ -538,13 +600,14 @@ const ListStudent = () => {
     } catch (err) {
       console.error("Lỗi upload file ZIP:", err);
       if (err.response && err.response.data) {
-        setZipError(err.response.data.message || "Không thể upload file ZIP.");
-      } else {
-        setZipError("Không thể kết nối đến máy chủ.");
-      }
-      message.error("Upload file ZIP thất bại.");
-      setZipLoading(false);
-      setZipProgress(0);
+      setZipError(err.response.data.message || "Không thể upload file ZIP.");
+    } else {
+      setZipError("Không thể kết nối đến máy chủ.");
+    }
+    message.error("Upload file ZIP thất bại.");
+    setZipLoading(false);
+    setZipProgress(0);
+    setFakeZipProgress(0);
     }
   };
 
@@ -579,7 +642,8 @@ const ListStudent = () => {
             onViewChange={setViewMode}
             onUploadClick={() => {
               setShowUploadModal(true);
-              setUploadSection("description");
+              setUploadSection(null);
+              setFakeZipProgress(0);
             }}
             onBack={() => navigate("/point-list")}
           />
@@ -660,11 +724,7 @@ const ListStudent = () => {
         open={showUploadModal}
         section={uploadSection}
         onSectionChange={setUploadSection}
-        onClose={() => {
-          if (!descriptionLoading && !detailsLoading && !zipLoading && !isPolling) {
-            setShowUploadModal(false);
-          }
-        }}
+        onClose={handleCloseUploadModal}
         disableClose={descriptionLoading || detailsLoading || zipLoading || isPolling}
         descriptionProps={{
           file: descriptionFile,
@@ -701,6 +761,7 @@ const ListStudent = () => {
           canUpload: excelUploaded || pagination.totalItems > 1,
           isPolling,
           processingStatus,
+          fakeProgress: fakeZipProgress,
         }}
         examZips={examZips}
         loadingExamZips={loadingExamZips}
