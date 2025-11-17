@@ -488,7 +488,7 @@ const MainPoint = () => {
         gradedAt: new Date().toISOString(),
         gradedBy: "", // Có thể lấy từ user đang đăng nhập nếu có
         attempt: gradeHistory.length > 0 ? gradeHistory.length + 1 : 1,
-        status: 2
+        status: 1
       };
       
       await axiosInstance.post("/Grade", payload);
