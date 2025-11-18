@@ -10,6 +10,7 @@ const MainPoint = () => {
   const examStudentId = searchParams.get("examStudentId");
   const statusFilter = searchParams.get("status"); // Lấy status filter từ URL
   const openPlagiarism = searchParams.get("openPlagiarism"); // Kiểm tra có cần mở modal không
+  const newAttempt = searchParams.get("newAttempt"); // Kiểm tra có phải lượt chấm mới không
   
   const [student, setStudent] = useState(null);
   const [students, setStudents] = useState([]);
@@ -35,6 +36,7 @@ const MainPoint = () => {
   const [gradeHistory, setGradeHistory] = useState([]); // Lịch sử chấm điểm
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState("");
   const debounceTimerRef = useRef({}); // Map rubricId -> timer
   
   // States for plagiarism check
@@ -236,21 +238,61 @@ const MainPoint = () => {
         },
       });
       
-      if (res.data && res.data.data && res.data.data.result && res.data.data.result.length > 0) {
-        const history = res.data.data.result;
+      console.log("Grade history response:", res.data);
+      
+      // Kiểm tra nhiều format response có thể có
+      let history = [];
+      if (res.data) {
+        // Format 1: res.data.data.result
+        if (res.data.data && res.data.data.result) {
+          history = res.data.data.result;
+        }
+        // Format 2: res.data.result
+        else if (res.data.result) {
+          history = res.data.result;
+        }
+        // Format 3: res.data là array trực tiếp
+        else if (Array.isArray(res.data)) {
+          history = res.data;
+        }
+        // Format 4: res.data.data là array
+        else if (res.data.data && Array.isArray(res.data.data)) {
+          history = res.data.data;
+        }
+      }
+      
+      if (history && history.length > 0) {
+        // Sắp xếp history theo thời gian (gradedAt) hoặc id để đảm bảo lần gần nhất ở cuối
+        history.sort((a, b) => {
+          // Ưu tiên sắp xếp theo gradedAt nếu có
+          if (a.gradedAt && b.gradedAt) {
+            return new Date(a.gradedAt) - new Date(b.gradedAt);
+          }
+          // Nếu không có gradedAt, sắp xếp theo id (id lớn hơn = mới hơn)
+          if (a.id && b.id) {
+            return a.id - b.id;
+          }
+          return 0;
+        });
+        
         setGradeHistory(history);
         
-        // Lấy record cuối cùng (lần gần nhất)
+        // Lấy record cuối cùng (lần gần nhất sau khi sắp xếp)
         const latestGrade = history[history.length - 1];
         const gradeIdFromResponse = latestGrade.id;
         setGradeId(gradeIdFromResponse);
         
+        console.log("Sorted history:", history);
+        console.log("Latest grade:", latestGrade);
+        
         return { gradeId: gradeIdFromResponse, history };
       }
+      
       setGradeHistory([]);
       return null;
     } catch (err) {
       console.error("Lỗi fetch grade history:", err);
+      console.error("Error details:", err.response?.data || err.message);
       setGradeHistory([]);
       return null;
     }
@@ -259,37 +301,136 @@ const MainPoint = () => {
   // Fetch grade details from gradeId and load scores into inputs
   const fetchGradeDetails = async (gradeIdParam) => {
     try {
+      console.log("Fetching grade details for gradeId:", gradeIdParam);
+      
+      // Reset state trước khi load dữ liệu mới
+      const detailsMap = {};
+      const scoresMap = {};
+      
+      // Bước 1: Lấy thông tin grade (để lấy comment và totalScore)
+      let gradeData = null;
+      try {
+        const res = await axiosInstance.get(`/Grade/${gradeIdParam}`);
+        console.log("Grade response:", res.data);
+        
+        if (res.data) {
+          if (res.data.data) {
+            gradeData = res.data.data;
+          } else if (res.data.id) {
+            gradeData = res.data;
+          }
+        }
+        
+        // Load comment nếu có
+        if (gradeData && gradeData.comment) {
+          setComment(gradeData.comment);
+          console.log("Loaded comment:", gradeData.comment);
+        } else {
+          setComment("");
+        }
+      } catch (gradeErr) {
+        console.error("Error fetching grade info:", gradeErr);
+        setComment("");
+      }
+      
+      // Bước 2: Lấy grade details từ response của Grade (details nằm trong response)
+      if (gradeData) {
+        let details = null;
+        if (gradeData.details && Array.isArray(gradeData.details)) {
+          details = gradeData.details;
+        } else if (gradeData.gradeDetails && Array.isArray(gradeData.gradeDetails)) {
+          details = gradeData.gradeDetails;
+        } else if (gradeData.gradeDetailList && Array.isArray(gradeData.gradeDetailList)) {
+          details = gradeData.gradeDetailList;
+        }
+        
+        console.log("GradeDetails from Grade response:", details);
+        
+        if (details && details.length > 0) {
+          details.forEach((detail) => {
+            if (detail.rubricId) {
+              detailsMap[detail.rubricId] = detail.id;
+              // Load điểm vào input
+              if (detail.score !== null && detail.score !== undefined) {
+                scoresMap[detail.rubricId] = detail.score.toString();
+                console.log(`Loaded score for rubricId ${detail.rubricId}: ${detail.score}`);
+              }
+            }
+          });
+        }
+      }
+      
+      setGradeDetailsMap(detailsMap);
+      // Load điểm vào state
+      setScore(scoresMap);
+      console.log("Final scores map:", scoresMap);
+      console.log("Final details map:", detailsMap);
+      
+      return detailsMap;
+    } catch (err) {
+      console.error("Lỗi fetch grade details:", err);
+      console.error("Error details:", err.response?.data || err.message);
+      // Reset state khi có lỗi
+      setScore({});
+      setComment("");
+      setGradeDetailsMap({});
+      return {};
+    }
+  };
+
+  // Fetch grade details chỉ để lấy gradeDetailIds (không load điểm) - cho lượt chấm mới
+  const fetchGradeDetailsForNewAttempt = async (gradeIdParam) => {
+    try {
       const res = await axiosInstance.get(`/Grade/${gradeIdParam}`);
       
       if (res.data && res.data.data) {
-        // Load comment nếu có
-        if (res.data.data.comment) {
-          setComment(res.data.data.comment);
-        }
-        
         if (res.data.data.details) {
           const detailsMap = {};
-          const scoresMap = {};
           
           res.data.data.details.forEach((detail) => {
             detailsMap[detail.rubricId] = detail.id;
-            // Load điểm vào input
-            if (detail.score !== null && detail.score !== undefined) {
-              scoresMap[detail.rubricId] = detail.score.toString();
-            }
           });
           
+          // Chỉ set gradeDetailsMap, KHÔNG load điểm vào input
           setGradeDetailsMap(detailsMap);
-          // Load điểm vào state
-          setScore(scoresMap);
           
           return detailsMap;
         }
       }
       return {};
     } catch (err) {
-      console.error("Lỗi fetch grade details:", err);
+      console.error("Lỗi fetch grade details for new attempt:", err);
       return {};
+    }
+  };
+
+  // Create grade detail nếu chưa có
+  const createGradeDetail = async (rubricId, scoreValue, gradeIdParam) => {
+    try {
+      const payload = {
+        gradeId: gradeIdParam || gradeId,
+        rubricId: rubricId,
+        score: parseFloat(scoreValue) || 0,
+        comment: "",
+        autoDetectResult: "",
+      };
+
+      const res = await axiosInstance.post("/GradeDetail", payload);
+      const newGradeDetailId = res.data?.data?.id || res.data?.id;
+      
+      if (newGradeDetailId) {
+        // Cập nhật gradeDetailsMap với gradeDetailId mới
+        setGradeDetailsMap((prev) => ({
+          ...prev,
+          [rubricId]: newGradeDetailId,
+        }));
+      }
+      
+      console.log(`Đã tạo gradeDetail cho rubricId ${rubricId}: ${scoreValue}`);
+      return newGradeDetailId;
+    } catch (err) {
+      console.error(`Lỗi tạo gradeDetail cho rubricId ${rubricId}:`, err);
+      return null;
     }
   };
 
@@ -386,9 +527,25 @@ const MainPoint = () => {
 
   // Load grade from history (for modal)
   const loadGradeFromHistory = async (gradeIdParam) => {
-    setGradeId(gradeIdParam);
-    await fetchGradeDetails(gradeIdParam);
-    // Attempt sẽ được cập nhật trong fetchGradeDetails
+    try {
+      console.log("Loading grade from history, gradeId:", gradeIdParam);
+      // Reset state trước khi load
+      setScore({});
+      setComment("");
+      setGradeDetailsMap({});
+      setGradeId(gradeIdParam);
+      
+      // Fetch grade details
+      const result = await fetchGradeDetails(gradeIdParam);
+      console.log("Load grade from history completed, result:", result);
+    } catch (err) {
+      console.error("Lỗi load grade from history:", err);
+      console.error("Error details:", err.response?.data || err.message);
+      // Đảm bảo reset state khi có lỗi
+      setScore({});
+      setComment("");
+      setGradeDetailsMap({});
+    }
   };
 
   // Fetch gradeId and gradeDetails when examStudentId changes
@@ -401,8 +558,22 @@ const MainPoint = () => {
       setComment("");
 
       const result = await fetchGradeHistory(examStudentId);
-      if (result && result.gradeId) {
-        await fetchGradeDetails(result.gradeId);
+      
+      // Nếu là lượt chấm mới (newAttempt=1), vẫn fetch details để lấy gradeDetailIds
+      // Nhưng không load điểm vào input (để giáo viên chấm từ đầu)
+      if (newAttempt === "1") {
+        if (result && result.gradeId) {
+          // Fetch details chỉ để lấy gradeDetailIds, không load điểm
+          await fetchGradeDetailsForNewAttempt(result.gradeId);
+        }
+        // Xóa query parameter newAttempt sau khi xử lý
+        const statusParam = statusFilter ? `&status=${statusFilter}` : "";
+        navigate(`/main-point?examId=${examId}&examStudentId=${examStudentId}${statusParam}`, { replace: true });
+      } else {
+        // Nếu không phải lượt chấm mới, fetch details của lần gần nhất để xem điểm
+        if (result && result.gradeId) {
+          await fetchGradeDetails(result.gradeId);
+        }
       }
     };
 
@@ -415,7 +586,7 @@ const MainPoint = () => {
       });
       debounceTimerRef.current = {};
     };
-  }, [examStudentId]);
+  }, [examStudentId, newAttempt, examId, statusFilter, navigate]);
 
   const handleInput = (key, value) => {
     setScore((prev) => ({ ...prev, [key]: value }));
@@ -425,29 +596,153 @@ const MainPoint = () => {
     const rubricId = parseInt(key);
     const gradeDetailId = gradeDetailsMap[rubricId];
 
-    if (!gradeDetailId || !gradeId) {
-      // Nếu chưa có gradeDetailId hoặc gradeId, thử fetch lại
+    if (!gradeId) {
+      // Nếu chưa có gradeId, thử fetch lại
       const initializeAndUpdate = async () => {
-        if (!gradeId) {
-          const fetchedGradeId = await fetchGradeId(examStudentId);
-          if (fetchedGradeId) {
-            const detailsMap = await fetchGradeDetails(fetchedGradeId);
-            const detailId = detailsMap[rubricId];
-            if (detailId) {
-              // Đợi một chút rồi update
+        const fetchedGradeId = await fetchGradeId(examStudentId);
+        if (fetchedGradeId) {
+          setGradeId(fetchedGradeId);
+          
+          // Fetch grade details từ response của Grade để lấy gradeDetailId
+          try {
+            const gradeRes = await axiosInstance.get(`/Grade/${fetchedGradeId}`);
+            console.log("Fetching gradeDetailId for rubricId:", rubricId, "gradeId:", fetchedGradeId, "response:", gradeRes.data);
+            
+            let gradeData = null;
+            if (gradeRes.data) {
+              if (gradeRes.data.data) {
+                gradeData = gradeRes.data.data;
+              } else if (gradeRes.data.id) {
+                gradeData = gradeRes.data;
+              }
+            }
+            
+            let gradeDetails = [];
+            if (gradeData) {
+              if (gradeData.details && Array.isArray(gradeData.details)) {
+                gradeDetails = gradeData.details;
+              } else if (gradeData.gradeDetails && Array.isArray(gradeData.gradeDetails)) {
+                gradeDetails = gradeData.gradeDetails;
+              } else if (gradeData.gradeDetailList && Array.isArray(gradeData.gradeDetailList)) {
+                gradeDetails = gradeData.gradeDetailList;
+              }
+            }
+            
+            // Tìm gradeDetailId cho rubricId này
+            const foundDetail = gradeDetails.find(d => d.rubricId === rubricId);
+            
+            if (foundDetail && foundDetail.id) {
+              // Đã có gradeDetail, update bằng PUT
+              const detailId = foundDetail.id;
+              setGradeDetailsMap((prev) => ({
+                ...prev,
+                [rubricId]: detailId,
+              }));
+              console.log(`Found existing gradeDetailId ${detailId} for rubricId ${rubricId}, will UPDATE`);
               setTimeout(() => {
                 updateGradeDetail(rubricId, value, detailId, fetchedGradeId);
               }, 500);
+            } else {
+              // Chưa có gradeDetail, tạo mới bằng POST
+              console.log(`No existing gradeDetailId for rubricId ${rubricId}, will CREATE`);
+              setTimeout(async () => {
+                const newDetailId = await createGradeDetail(rubricId, value, fetchedGradeId);
+                if (newDetailId) {
+                  // Cập nhật lại gradeDetailsMap
+                  setGradeDetailsMap((prev) => ({
+                    ...prev,
+                    [rubricId]: newDetailId,
+                  }));
+                }
+              }, 500);
+            }
+          } catch (fetchErr) {
+            console.error("Error fetching gradeDetail:", fetchErr);
+            // Nếu fetch thất bại, thử tạo mới
+            setTimeout(async () => {
+              const newDetailId = await createGradeDetail(rubricId, value, fetchedGradeId);
+              if (newDetailId) {
+                setGradeDetailsMap((prev) => ({
+                  ...prev,
+                  [rubricId]: newDetailId,
+                }));
+              }
+            }, 500);
+          }
+        }
+      };
+      initializeAndUpdate();
+      return;
+    }
+
+    if (!gradeDetailId) {
+      // Nếu chưa có gradeDetailId, thử fetch lại hoặc tạo mới
+      const initializeAndUpdate = async () => {
+        // Thử fetch details từ response của Grade để xem có gradeDetail chưa
+        try {
+          const gradeRes = await axiosInstance.get(`/Grade/${gradeId}`);
+          console.log("Fetching gradeDetailId for rubricId:", rubricId, "response:", gradeRes.data);
+          
+          let gradeData = null;
+          if (gradeRes.data) {
+            if (gradeRes.data.data) {
+              gradeData = gradeRes.data.data;
+            } else if (gradeRes.data.id) {
+              gradeData = gradeRes.data;
             }
           }
-        } else if (!gradeDetailId) {
-          const detailsMap = await fetchGradeDetails(gradeId);
-          const detailId = detailsMap[rubricId];
-          if (detailId) {
+          
+          let gradeDetails = [];
+          if (gradeData) {
+            if (gradeData.details && Array.isArray(gradeData.details)) {
+              gradeDetails = gradeData.details;
+            } else if (gradeData.gradeDetails && Array.isArray(gradeData.gradeDetails)) {
+              gradeDetails = gradeData.gradeDetails;
+            } else if (gradeData.gradeDetailList && Array.isArray(gradeData.gradeDetailList)) {
+              gradeDetails = gradeData.gradeDetailList;
+            }
+          }
+          
+          // Tìm gradeDetailId cho rubricId này
+          const foundDetail = gradeDetails.find(d => d.rubricId === rubricId);
+          
+          if (foundDetail && foundDetail.id) {
+            // Đã có gradeDetail, update bằng PUT
+            const detailId = foundDetail.id;
+            setGradeDetailsMap((prev) => ({
+              ...prev,
+              [rubricId]: detailId,
+            }));
+            console.log(`Found existing gradeDetailId ${detailId} for rubricId ${rubricId}, will UPDATE`);
             setTimeout(() => {
               updateGradeDetail(rubricId, value, detailId, gradeId);
             }, 500);
+          } else {
+            // Chưa có gradeDetail, tạo mới bằng POST
+            console.log(`No existing gradeDetailId for rubricId ${rubricId}, will CREATE`);
+            setTimeout(async () => {
+              const newDetailId = await createGradeDetail(rubricId, value, gradeId);
+              if (newDetailId) {
+                // Cập nhật lại gradeDetailsMap
+                setGradeDetailsMap((prev) => ({
+                  ...prev,
+                  [rubricId]: newDetailId,
+                }));
+              }
+            }, 500);
           }
+        } catch (fetchErr) {
+          console.error("Error fetching gradeDetail:", fetchErr);
+          // Nếu fetch thất bại, thử tạo mới
+          setTimeout(async () => {
+            const newDetailId = await createGradeDetail(rubricId, value, gradeId);
+            if (newDetailId) {
+              setGradeDetailsMap((prev) => ({
+                ...prev,
+                [rubricId]: newDetailId,
+              }));
+            }
+          }, 500);
         }
       };
       initializeAndUpdate();
@@ -486,20 +781,20 @@ const MainPoint = () => {
       const totalScore = calculateTotalScore();
       const payload = {
         examStudentId: parseInt(examStudentId),
+        examId: parseInt(examId),
         totalScore: totalScore,
         comment: comment || "",
         gradedAt: new Date().toISOString(),
         gradedBy: "", // Có thể lấy từ user đang đăng nhập nếu có
-        attempt: gradeHistory.length > 0 ? gradeHistory.length + 1 : 1,
+        attempt: gradeHistory.length > 0 ? gradeHistory.length : 1,
         status: 1
       };
       
-      // Nếu status là PARSED và có gradeId, dùng PUT để update
-      if (student && student.status === "PARSED" && gradeId) {
+      // Nếu có gradeId (từ lượt chấm mới hoặc lượt cũ), dùng PUT để update
+      if (gradeId) {
         await axiosInstance.put(`/grade/${gradeId}`, payload);
       } else {
-        // Nếu không phải PARSED hoặc chưa có gradeId, dùng POST để tạo mới
-        payload.status = 1;
+        // Nếu chưa có gradeId, dùng POST để tạo mới
         await axiosInstance.post("/Grade", payload);
       }
       
@@ -601,9 +896,16 @@ const MainPoint = () => {
             onClick={async () => {
               setShowHistoryModal(true);
               setLoadingHistory(true);
+              setHistoryError("");
               // Fetch lại lịch sử khi mở modal
-              await fetchGradeHistory(examStudentId);
-              setLoadingHistory(false);
+              try {
+                await fetchGradeHistory(examStudentId);
+              } catch (err) {
+                setHistoryError("Không thể tải lịch sử chấm điểm. Vui lòng thử lại.");
+                console.error("Lỗi khi fetch history:", err);
+              } finally {
+                setLoadingHistory(false);
+              }
             }}
             title="Xem lịch sử chấm điểm"
           >
@@ -1005,6 +1307,28 @@ const MainPoint = () => {
                     </div>
                     <p className="text-muted mt-3">Đang tải lịch sử...</p>
                   </div>
+                ) : historyError ? (
+                  <div className="text-center py-4">
+                    <i className="bi bi-exclamation-triangle text-danger" style={{ fontSize: "48px" }}></i>
+                    <p className="text-danger mt-3">{historyError}</p>
+                    <button
+                      className="btn btn-primary mt-3"
+                      onClick={async () => {
+                        setLoadingHistory(true);
+                        setHistoryError("");
+                        try {
+                          await fetchGradeHistory(examStudentId);
+                        } catch (error) {
+                          console.error("Lỗi khi fetch history:", error);
+                          setHistoryError("Không thể tải lịch sử chấm điểm. Vui lòng thử lại.");
+                        } finally {
+                          setLoadingHistory(false);
+                        }
+                      }}
+                    >
+                      Thử lại
+                    </button>
+                  </div>
                 ) : gradeHistory.length === 0 ? (
                   <div className="text-center py-4">
                     <i className="bi bi-inbox text-muted" style={{ fontSize: "48px" }}></i>
@@ -1012,7 +1336,22 @@ const MainPoint = () => {
                   </div>
                 ) : (
                   <div className="list-group">
-                    {gradeHistory.map((grade, index) => (
+                    {(() => {
+                      // Tìm lần gần nhất dựa trên thời gian hoặc id (tính một lần)
+                      const latestGrade = gradeHistory.reduce((latest, current) => {
+                        if (current.gradedAt && latest.gradedAt) {
+                          return new Date(current.gradedAt) > new Date(latest.gradedAt) ? current : latest;
+                        }
+                        if (current.id && latest.id) {
+                          return current.id > latest.id ? current : latest;
+                        }
+                        return latest;
+                      }, gradeHistory[0]);
+                      
+                      return gradeHistory.map((grade, index) => {
+                        const isLatest = grade.id === latestGrade.id;
+                        
+                        return (
                       <div
                         key={grade.id}
                         className="list-group-item border rounded-3 mb-2 shadow-sm"
@@ -1073,7 +1412,7 @@ const MainPoint = () => {
                                 </small>
                               </div>
                             )}
-                            {index === gradeHistory.length - 1 && (
+                            {isLatest && (
                               <div className="mt-2">
                                 <small className="badge bg-info">Lần gần nhất</small>
                               </div>
@@ -1094,7 +1433,9 @@ const MainPoint = () => {
                           </div>
                         </div>
                       </div>
-                    ))}
+                        );
+                      });
+                    })()}
                   </div>
                 )}
               </div>

@@ -87,6 +87,31 @@ const ListStudent = () => {
     }
   };
 
+  // Hàm tạo lượt chấm mới cho student có status GRADED
+  const handleCreateNewAttempt = async (examStudentId, e) => {
+    e.stopPropagation(); // Ngăn chặn event bubble lên card
+    
+    if (!examStudentId) {
+      alert("Không tìm thấy examStudentId");
+      return;
+    }
+
+    try {
+      // Gọi API POST để tạo lượt chấm mới
+      await axiosInstance.post("/grade", {
+        examStudentId: parseInt(examStudentId),
+        examId: parseInt(examId)
+      });
+      
+      // Navigate đến trang chấm điểm với flag newAttempt=1 để không fetch details
+      const statusParam = activeStatus !== "ALL" ? `&status=${activeStatus}` : "";
+      navigate(`/main-point?examId=${examId}&examStudentId=${examStudentId}${statusParam}&newAttempt=1`);
+    } catch (err) {
+      console.error("Lỗi tạo lượt chấm mới:", err);
+      alert("Có lỗi xảy ra khi tạo lượt chấm mới. Vui lòng thử lại.");
+    }
+  };
+
   useEffect(() => {
     const fetchStudents = async () => {
       if (!examId) {
@@ -864,6 +889,19 @@ const ListStudent = () => {
                       </div>
                     )}
 
+                    {student.status === "GRADED" && (
+                      <div className="mt-3 mb-2">
+                        <button
+                          className="btn btn-sm btn-outline-success w-100"
+                          onClick={(e) => handleCreateNewAttempt(student.examStudentId, e)}
+                          style={{ borderRadius: "8px" }}
+                        >
+                          <i className="bi bi-plus-circle me-1"></i>
+                          Tạo lượt chấm mới
+                        </button>
+                      </div>
+                    )}
+
                     <div className="mt-3 pt-3 border-top">
                       <small className="text-muted">
                         ID: {student.examStudentId}
@@ -952,7 +990,17 @@ const ListStudent = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="d-flex align-items-center gap-3">
+                  <div className="d-flex flex-column align-items-end gap-2">
+                    {student.status === "GRADED" && (
+                      <button
+                        className="btn btn-sm btn-outline-success"
+                        onClick={(e) => handleCreateNewAttempt(student.examStudentId, e)}
+                        style={{ borderRadius: "8px", whiteSpace: "nowrap" }}
+                      >
+                        <i className="bi bi-plus-circle me-1"></i>
+                        Tạo lượt chấm mới
+                      </button>
+                    )}
                     <small className="text-muted">ID: {student.examStudentId}</small>
                   </div>
                 </div>
