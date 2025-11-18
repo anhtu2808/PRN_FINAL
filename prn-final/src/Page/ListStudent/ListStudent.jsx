@@ -628,6 +628,33 @@ const ListStudent = () => {
     }
   };
 
+  const handleCreateNewGrade = async (student) => {
+    if (!examId || !student.examStudentId) {
+      message.error("Không tìm thấy thông tin exam hoặc học sinh.");
+      return;
+    }
+
+    try {
+      const response = await axiosInstance.post("/grade", {
+        examStudentId: student.examStudentId,
+        examId: parseInt(examId),
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        message.success("Tạo lượt chấm mới thành công!");
+        const statusParam = activeStatus !== "ALL" ? `&status=${activeStatus}` : "";
+        navigate(`/main-point?examId=${examId}&examStudentId=${student.examStudentId}${statusParam}`);
+      }
+    } catch (err) {
+      console.error("Lỗi tạo lượt chấm mới:", err);
+      if (err.response && err.response.data) {
+        message.error(err.response.data.message || "Không thể tạo lượt chấm mới.");
+      } else {
+        message.error("Không thể kết nối đến máy chủ.");
+      }
+    }
+  };
+
 
   return (
     <Layout style={{ minHeight: "100vh", background: "#f5f7fa" }}>
@@ -689,12 +716,14 @@ const ListStudent = () => {
                 students={students}
                 onSelect={handleSelectStudent}
                 getStatusInfo={getStatusInfo}
+                onCreateNewGrade={handleCreateNewGrade}
               />
             ) : (
               <StudentList
                 students={students}
                 onSelect={handleSelectStudent}
                 getStatusInfo={getStatusInfo}
+                onCreateNewGrade={handleCreateNewGrade}
               />
             )}
 

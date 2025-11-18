@@ -1,8 +1,8 @@
 import React from "react";
-import { List, Avatar, Space, Tag, Typography } from "antd";
-import { UserOutlined, FileTextOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import { List, Avatar, Space, Tag, Typography, Button } from "antd";
+import { UserOutlined, FileTextOutlined, InfoCircleOutlined, EditOutlined } from "@ant-design/icons";
 
-const StudentList = ({ students, onSelect, getStatusInfo }) => {
+const StudentList = ({ students, onSelect, getStatusInfo, onCreateNewGrade }) => {
   return (
     <List
       itemLayout="vertical"
@@ -57,7 +57,22 @@ const StudentList = ({ students, onSelect, getStatusInfo }) => {
                   </Space>
                 </Space>
               </Space>
-              <Typography.Text type="secondary">ID: {student.examStudentId}</Typography.Text>
+              <Space direction="vertical" align="end">
+                <Typography.Text type="secondary">ID: {student.examStudentId}</Typography.Text>
+                {student.docFiles && student.docFiles.length > 0 && student.status === "GRADED" && onCreateNewGrade && (
+                  <Button
+                    type="primary"
+                    icon={<EditOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCreateNewGrade(student);
+                    }}
+                    size="small"
+                  >
+                    Tạo lượt chấm mới
+                  </Button>
+                )}
+              </Space>
             </Space>
           </List.Item>
         );

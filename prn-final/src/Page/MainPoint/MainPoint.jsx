@@ -447,11 +447,17 @@ const MainPoint = () => {
         status: 1
       };
 
-      if (student && student.status === "PARSED" && gradeId) {
+      // Nếu có gradeId, sử dụng PUT để cập nhật
+      if (gradeId) {
         await axiosInstance.put(`/grade/${gradeId}`, payload);
       } else {
+        // Nếu không có gradeId, tạo mới bằng POST
         payload.status = 1;
-        await axiosInstance.post("/Grade", payload);
+        const response = await axiosInstance.post("/grade", payload);
+        // Nếu response có data và id, cập nhật gradeId
+        if (response.data && response.data.data && response.data.data.id) {
+          setGradeId(response.data.data.id);
+        }
       }
 
       await fetchGradeHistory(examStudentId);
@@ -757,60 +763,77 @@ const MainPoint = () => {
           </div>
         ) : gradeHistory.length === 0 ? (
           <Empty description="Chưa có lịch sử chấm điểm" />
-        ) : (
+        ) : (() => {
+          // Tìm grade gần nhất dựa trên attempt cao nhất hoặc gradedAt mới nhất
+          const latestGrade = gradeHistory.reduce((latest, current) => {
+            if (current.attempt > latest.attempt) {
+              return current;
+            } else if (current.attempt === latest.attempt) {
+              // Nếu attempt bằng nhau, so sánh theo thời gian
+              const currentTime = new Date(current.gradedAt || 0).getTime();
+              const latestTime = new Date(latest.gradedAt || 0).getTime();
+              return currentTime > latestTime ? current : latest;
+            }
+            return latest;
+          }, gradeHistory[0]);
+          
+          return (
           <List
             dataSource={gradeHistory}
-            renderItem={(grade, index) => (
-              <List.Item
-                key={grade.id}
-                style={{
-                  cursor: 'pointer',
-                  padding: 16,
-                  border: '1px solid #f0f0f0',
-                  borderRadius: 8,
-                  marginBottom: 8,
-                  transition: 'all 0.3s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#fafafa';
-                  e.currentTarget.style.borderColor = '#1890ff';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#fff';
-                  e.currentTarget.style.borderColor = '#f0f0f0';
-                }}
-                onClick={async () => {
-                  await loadGradeFromHistory(grade.id);
-                  setShowHistoryModal(false);
-                }}
-                actions={[
-                  <Button
-                    type="primary"
-                    size="small"
-                    icon={<EyeOutlined />}
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      await loadGradeFromHistory(grade.id);
-                      setShowHistoryModal(false);
-                    }}
-                  >
-                    Tải lại
-                  </Button>
-                ]}
-              >
-                <List.Item.Meta
-                  title={
-                    <Space>
-                      <Badge count={`Lần ${index + 1}`} style={{ backgroundColor: '#1890ff' }} />
-                      <Badge
-                        status={grade.status === "GRADED" ? "success" : "default"}
-                        text={grade.status === "GRADED" ? "Đã chấm" : grade.status}
-                      />
-                      {index === gradeHistory.length - 1 && (
-                        <Badge status="processing" text="Lần gần nhất" />
-                      )}
-                    </Space>
-                  }
+            renderItem={(grade, index) => {
+              const isLatest = grade.id === latestGrade.id;
+              
+              return (
+                <List.Item
+                  key={grade.id}
+                  style={{
+                    cursor: 'pointer',
+                    padding: 16,
+                    border: '1px solid #f0f0f0',
+                    borderRadius: 8,
+                    marginBottom: 8,
+                    transition: 'all 0.3s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#fafafa';
+                    e.currentTarget.style.borderColor = '#1890ff';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#fff';
+                    e.currentTarget.style.borderColor = '#f0f0f0';
+                  }}
+                  onClick={async () => {
+                    await loadGradeFromHistory(grade.id);
+                    setShowHistoryModal(false);
+                  }}
+                  actions={[
+                    <Button
+                      type="primary"
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await loadGradeFromHistory(grade.id);
+                        setShowHistoryModal(false);
+                      }}
+                    >
+                      Tải lại
+                    </Button>
+                  ]}
+                >
+                  <List.Item.Meta
+                    title={
+                      <Space>
+                        <Badge count={`Lần ${grade.attempt || index + 1}`} style={{ backgroundColor: '#1890ff' }} />
+                        <Badge
+                          status={grade.status === "GRADED" ? "success" : "default"}
+                          text={grade.status === "GRADED" ? "Đã chấm" : grade.status}
+                        />
+                        {isLatest && (
+                          <Badge status="processing" text="Lần gần nhất" />
+                        )}
+                      </Space>
+                    }
                   description={
                     <Space direction="vertical" size="small">
                       <Text type="secondary">
@@ -826,9 +849,11 @@ const MainPoint = () => {
                   }
                 />
               </List.Item>
-            )}
+              );
+            }}
           />
-        )}
+          );
+        })()}
       </Modal>
 
       {/* Plagiarism Check Modal */}

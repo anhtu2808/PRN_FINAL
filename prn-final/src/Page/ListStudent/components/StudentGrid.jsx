@@ -1,8 +1,8 @@
 import React from "react";
-import { Row, Col, Card, Space, Typography, Tag, Avatar } from "antd";
-import { UserOutlined, FileTextOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import { Row, Col, Card, Space, Typography, Tag, Avatar, Button } from "antd";
+import { UserOutlined, FileTextOutlined, InfoCircleOutlined, EditOutlined } from "@ant-design/icons";
 
-const StudentGrid = ({ students, onSelect, getStatusInfo }) => {
+const StudentGrid = ({ students, onSelect, getStatusInfo, onCreateNewGrade }) => {
   return (
     <Row gutter={[16, 16]}>
       {students.map((student) => {
@@ -54,6 +54,20 @@ const StudentGrid = ({ students, onSelect, getStatusInfo }) => {
                 )}
 
                 <Typography.Text type="secondary">ID: {student.examStudentId}</Typography.Text>
+
+                {student.docFiles && student.docFiles.length > 0 && student.status === "GRADED" && onCreateNewGrade && (
+                  <Button
+                    type="primary"
+                    icon={<EditOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCreateNewGrade(student);
+                    }}
+                    style={{ width: "100%", marginTop: 8 }}
+                  >
+                    Tạo lượt chấm mới
+                  </Button>
+                )}
               </Space>
             </Card>
           </Col>
