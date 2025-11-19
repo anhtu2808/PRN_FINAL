@@ -6,6 +6,7 @@ import PointListToolbar from "./components/PointListToolbar";
 import PointListSearch from "./components/PointListSearch";
 import ExerciseGrid from "./components/ExerciseGrid";
 import ExerciseList from "./components/ExerciseList";
+import ExerciseTable from "./components/ExerciseTable";
 
 const { Content } = Layout;
 const { Text } = Typography;
@@ -168,6 +169,13 @@ const PointList = () => {
               <Empty description="Chưa có bài nào cần chấm" />
             ) : viewMode === "grid" ? (
               <ExerciseGrid
+                exercises={exercises}
+                onSelect={handleSelectExercise}
+                onDelete={handleDeleteExam}
+                deletingId={deletingId}
+              />
+            ) : viewMode === "table" ? (
+              <ExerciseTable
                 exercises={exercises}
                 onSelect={handleSelectExercise}
                 onDelete={handleDeleteExam}

@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, Space, Typography, Segmented, Button, Statistic } from "antd";
-import { AppstoreOutlined, OrderedListOutlined, PlusCircleOutlined } from "@ant-design/icons";
+import { AppstoreOutlined, OrderedListOutlined, PlusCircleOutlined, TableOutlined } from "@ant-design/icons";
 
 const PointListToolbar = ({ totalItems, viewMode, onViewChange, onCreateTurn }) => {
   return (
@@ -36,6 +36,7 @@ const PointListToolbar = ({ totalItems, viewMode, onViewChange, onCreateTurn }) 
               options={[
                 { label: "Lưới", value: "grid", icon: <AppstoreOutlined /> },
                 { label: "Danh sách", value: "list", icon: <OrderedListOutlined /> },
+                { label: "Bảng", value: "table", icon: <TableOutlined /> },
               ]}
             />
             <Button

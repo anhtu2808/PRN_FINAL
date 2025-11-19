@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, Space, Typography, Segmented, Button } from "antd";
-import { AppstoreOutlined, OrderedListOutlined, UploadOutlined, ArrowLeftOutlined } from "@ant-design/icons";
+import { AppstoreOutlined, OrderedListOutlined, UploadOutlined, ArrowLeftOutlined, TableOutlined } from "@ant-design/icons";
 
 const StudentToolbar = ({ totalItems, viewMode, onViewChange, onUploadClick, onBack }) => {
   return (
@@ -31,6 +31,7 @@ const StudentToolbar = ({ totalItems, viewMode, onViewChange, onUploadClick, onB
               options={[
                 { label: "Danh sách", value: "list", icon: <OrderedListOutlined /> },
                 { label: "Lưới", value: "grid", icon: <AppstoreOutlined /> },
+                { label: "Bảng", value: "table", icon: <TableOutlined /> },
               ]}
             />
             <Button type="primary" icon={<UploadOutlined />} onClick={onUploadClick}>

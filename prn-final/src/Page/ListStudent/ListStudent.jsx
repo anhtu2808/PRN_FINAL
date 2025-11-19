@@ -7,6 +7,7 @@ import StudentFilters from "./components/StudentFilters";
 import StudentSearchBar from "./components/StudentSearchBar";
 import StudentGrid from "./components/StudentGrid";
 import StudentList from "./components/StudentList";
+import StudentTable from "./components/StudentTable";
 import UploadModal from "./components/UploadModal";
 
 const { Content } = Layout;
@@ -713,6 +714,13 @@ const ListStudent = () => {
               <Empty description="Chưa có học sinh nào" />
             ) : viewMode === "grid" ? (
               <StudentGrid
+                students={students}
+                onSelect={handleSelectStudent}
+                getStatusInfo={getStatusInfo}
+                onCreateNewGrade={handleCreateNewGrade}
+              />
+            ) : viewMode === "table" ? (
+              <StudentTable
                 students={students}
                 onSelect={handleSelectStudent}
                 getStatusInfo={getStatusInfo}
