@@ -9,6 +9,7 @@ import StudentGrid from "./components/StudentGrid";
 import StudentList from "./components/StudentList";
 import StudentTable from "./components/StudentTable";
 import UploadModal from "./components/UploadModal";
+import ExportHistoryModal from "./components/ExportHistoryModal";
 
 const { Content } = Layout;
 const { Text } = Typography;
@@ -24,7 +25,7 @@ const ListStudent = () => {
   const [size] = useState(12);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchInput, setSearchInput] = useState("");
-  const [viewMode, setViewMode] = useState("list");
+  const [viewMode, setViewMode] = useState("table");
   const [activeStatus, setActiveStatus] = useState(() => {
     const urlStatus = searchParams.get("status");
     return urlStatus && ["ALL", "PARSED", "NOT_FOUND", "GRADED"].includes(urlStatus)
@@ -41,11 +42,11 @@ const ListStudent = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadSection, setUploadSection] = useState(null);
   const [excelUploaded, setExcelUploaded] = useState(false); // Track if Excel is uploaded
-  
+
   // Exam Zips history states
   const [examZips, setExamZips] = useState([]);
   const [loadingExamZips, setLoadingExamZips] = useState(false);
-  
+
   // Description upload states
   const [descriptionFile, setDescriptionFile] = useState(null);
   const [descriptionFileName, setDescriptionFileName] = useState("");
@@ -75,19 +76,23 @@ const ListStudent = () => {
   const [fakeZipProgress, setFakeZipProgress] = useState(0);
   const fakeProgressIntervalRef = useRef(null);
   const fakeProgressFinishTimeoutRef = useRef(null);
-
+  const [examInfo, setExamInfo] = useState(null);
+  const [examLoading, setExamLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportHistory, setExportHistory] = useState([]);
+  const [showExportHistory, setShowExportHistory] = useState(false);
   // Hàm fetch tổng số items mà không thay đổi view hiện tại
   const fetchTotalItems = async () => {
     if (!examId) return;
 
     try {
-      const res = await axiosInstance.get(`/exams/${examId}/students`, {
+      const res = await axiosInstance.get(`me/exams/${examId}/exam-students`, {
         params: {
           Page: 1,
           Size: 1, // Chỉ cần 1 item để lấy totalItems
         },
       });
-      
+
       if (res.data && res.data.data) {
         setPagination(prev => ({
           ...prev,
@@ -96,6 +101,53 @@ const ListStudent = () => {
       }
     } catch (err) {
       console.error("Lỗi fetch tổng số items:", err);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!examId) return;
+
+    try {
+      setExportLoading(true);
+
+      const response = await axiosInstance.post(
+        `/exams/${examId}/export-excel`,
+        null,
+        {
+          responseType: "blob",
+        }
+      );
+
+      // Tải file về
+      const blob = new Blob([response.data], { type: response.headers["content-type"] });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+
+      // Tên file excel
+      link.download = `Export_Exam_${examId}.xlsx`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      message.success("Export thành công!");
+    } catch (err) {
+      console.error("Lỗi export:", err);
+      message.error("Export thất bại!");
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const fetchExportHistory = async () => {
+    try {
+      const res = await axiosInstance.get(`/exams/${examId}/grade-excel`);
+      if (res.data?.data?.result) {
+        setExportHistory(res.data.data.result);
+      }
+    } catch (err) {
+      console.error("Lỗi fetch lịch sử export:", err);
     }
   };
 
@@ -113,12 +165,12 @@ const ListStudent = () => {
           Page: page,
           Size: size,
         };
-        
+
         // Chỉ thêm Status param nếu không phải "ALL"
         if (activeStatus !== "ALL") {
           params.Status = activeStatus;
         }
-        
+
         if (searchTerm.trim()) {
           params.Search = searchTerm.trim();
         }
@@ -126,7 +178,7 @@ const ListStudent = () => {
         const res = await axiosInstance.get(`/exams/${examId}/students`, {
           params,
         });
-        
+
         if (res.data && res.data.data && res.data.data.result) {
           setStudents(res.data.data.result);
           setPagination({
@@ -147,6 +199,30 @@ const ListStudent = () => {
 
     fetchStudents();
   }, [page, size, searchTerm, activeStatus, examId]);
+
+  useEffect(() => {
+    const fetchExamInfo = async () => {
+      if (!examId) return;
+
+      try {
+        setExamLoading(true);
+        const res = await axiosInstance.get(`/exams/${examId}`);
+
+        if (res.data && res.data.data) {
+          setExamInfo({
+            examCode: res.data.data.examCode,
+            title: res.data.data.title,
+          });
+        }
+        setExamLoading(false);
+      } catch (err) {
+        console.error("Lỗi fetch exam:", err);
+        setExamLoading(false);
+      }
+    };
+
+    fetchExamInfo();
+  }, [examId]);
 
   // Cleanup polling interval khi component unmount
   useEffect(() => {
@@ -474,11 +550,11 @@ const ListStudent = () => {
     setIsPolling(true);
     setZipLoading(false);
     setFakeZipProgress((prev) => (prev > 0 ? prev : 1));
-    
+
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
     }
-    
+
     checkStatus(zipId).then((statusData) => {
       if (statusData) {
         const shouldContinue = handleStatusUpdate(statusData);
@@ -598,14 +674,14 @@ const ListStudent = () => {
     } catch (err) {
       console.error("Lỗi upload file ZIP:", err);
       if (err.response && err.response.data) {
-      setZipError(err.response.data.message || "Không thể upload file ZIP.");
-    } else {
-      setZipError("Không thể kết nối đến máy chủ.");
-    }
-    message.error("Upload file ZIP thất bại.");
-    setZipLoading(false);
-    setZipProgress(0);
-    setFakeZipProgress(0);
+        setZipError(err.response.data.message || "Không thể upload file ZIP.");
+      } else {
+        setZipError("Không thể kết nối đến máy chủ.");
+      }
+      message.error("Upload file ZIP thất bại.");
+      setZipLoading(false);
+      setZipProgress(0);
+      setFakeZipProgress(0);
     }
   };
 
@@ -668,13 +744,17 @@ const ListStudent = () => {
             onUploadClick={() => {
               setShowUploadModal(true);
               setUploadSection(null);
-              if (isPolling) {
-                setFakeZipProgress((prev) => (prev >= 50 ? prev : 50));
-              } else {
-                setFakeZipProgress(0);
-              }
             }}
+            onExport={handleExport}
+
+            onViewExportHistory={() => {
+              fetchExportHistory();
+              setShowExportHistory(true);
+            }}
+
             onBack={() => navigate("/point-list")}
+            examInfo={examInfo}
+            examLoading={examLoading}
           />
 
           <Card bodyStyle={{ padding: 24 }}>
@@ -808,6 +888,14 @@ const ListStudent = () => {
         excelUploaded={excelUploaded}
         totalItems={pagination.totalItems}
       />
+
+      <ExportHistoryModal
+        open={showExportHistory}
+        onClose={() => setShowExportHistory(false)}
+        history={exportHistory}
+        formatDate={formatDate}
+      />
+
     </Layout>
   );
 };

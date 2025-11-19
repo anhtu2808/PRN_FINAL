@@ -19,7 +19,7 @@ const PointList = () => {
   const [size] = useState(12);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchInput, setSearchInput] = useState("");
-  const [viewMode, setViewMode] = useState("list");
+  const [viewMode, setViewMode] = useState("table");
   const [pagination, setPagination] = useState({
     totalItems: 0,
     totalPages: 1,
@@ -37,15 +37,15 @@ const PointList = () => {
           Page: page,
           Size: size,
         };
-        
+
         if (searchTerm.trim()) {
           params.Search = searchTerm.trim();
         }
 
-        const res = await axiosInstance.get("/exams", {
+        const res = await axiosInstance.get("me/exams", {
           params,
         });
-        
+
         if (res.data && res.data.data && res.data.data.result) {
           setExercises(res.data.data.result);
           setPagination({
@@ -93,13 +93,13 @@ const PointList = () => {
     try {
       setDeletingId(examId);
       await axiosInstance.delete(`/exams/${examId}`);
-      
+
       // Refresh danh sách sau khi xóa thành công
       const params = {
         Page: page,
         Size: size,
       };
-      
+
       if (searchTerm.trim()) {
         params.Search = searchTerm.trim();
       }
@@ -107,7 +107,7 @@ const PointList = () => {
       const res = await axiosInstance.get("/exams", {
         params,
       });
-      
+
       if (res.data && res.data.data && res.data.data.result) {
         setExercises(res.data.data.result);
         setPagination({
@@ -118,7 +118,7 @@ const PointList = () => {
       } else {
         setExercises([]);
       }
-      
+
       setDeletingId(null);
       message.success("Đã xóa bài thi.");
     } catch (err) {
@@ -167,13 +167,6 @@ const PointList = () => {
               />
             ) : exercises.length === 0 ? (
               <Empty description="Chưa có bài nào cần chấm" />
-            ) : viewMode === "grid" ? (
-              <ExerciseGrid
-                exercises={exercises}
-                onSelect={handleSelectExercise}
-                onDelete={handleDeleteExam}
-                deletingId={deletingId}
-              />
             ) : viewMode === "table" ? (
               <ExerciseTable
                 exercises={exercises}
@@ -181,14 +174,9 @@ const PointList = () => {
                 onDelete={handleDeleteExam}
                 deletingId={deletingId}
               />
-            ) : (
-              <ExerciseList
-                exercises={exercises}
-                onSelect={handleSelectExercise}
-                onDelete={handleDeleteExam}
-                deletingId={deletingId}
-              />
-            )}
+            ) : null}
+
+
 
             {!loading && !error && pagination.totalPages > 1 && (
               <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>

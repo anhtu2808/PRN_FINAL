@@ -18,11 +18,6 @@ const StudentTable = ({ students, onSelect, getStatusInfo, onCreateNewGrade }) =
       width: 200,
       render: (name, record) => (
         <Space>
-          <Avatar
-            size={32}
-            icon={<UserOutlined />}
-            style={{ backgroundColor: "#e6f4ff", color: "#1677ff" }}
-          />
           <Typography.Text strong>
             {name || `Học sinh ${record.examStudentId}`}
           </Typography.Text>

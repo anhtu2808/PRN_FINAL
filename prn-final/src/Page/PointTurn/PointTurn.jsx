@@ -49,11 +49,9 @@ const PointTurn = () => {
         payload
       );
 
-      if (response.status === 200 || response.status === 201) {
+      if (response.data.code === 200 || response.data.code === 201) {
         setSuccess("Tạo lượt chấm bài thành công!");
-        setTimeout(() => {
-          navigate("/point-list");
-        }, 2000);
+        navigate("/point-list"); 
       }
     } catch (err) {
       console.error("Lỗi tạo lượt chấm:", err);

@@ -34,8 +34,6 @@ const PointListToolbar = ({ totalItems, viewMode, onViewChange, onCreateTurn }) 
               value={viewMode}
               onChange={onViewChange}
               options={[
-                { label: "Lưới", value: "grid", icon: <AppstoreOutlined /> },
-                { label: "Danh sách", value: "list", icon: <OrderedListOutlined /> },
                 { label: "Bảng", value: "table", icon: <TableOutlined /> },
               ]}
             />

@@ -8,16 +8,16 @@ const ExerciseTable = ({ exercises, onSelect, onDelete, deletingId }) => {
       title: "ID",
       dataIndex: "id",
       key: "id",
-      width: 80,
+      width: "10%",
       render: (id) => <Tag color="geekblue">{id}</Tag>,
     },
     {
       title: "Mã bài thi",
       dataIndex: "examCode",
       key: "examCode",
-      width: 150,
+      width: "30%",
       render: (examCode, record) => (
-        <Space>
+        <Space size="small">
           <FileTextOutlined style={{ color: "#1677ff" }} />
           <Typography.Text strong>
             {examCode || `Bài ${record.id}`}
@@ -29,36 +29,26 @@ const ExerciseTable = ({ exercises, onSelect, onDelete, deletingId }) => {
       title: "Tên bài thi",
       dataIndex: "title",
       key: "title",
+      width: "40%",
       ellipsis: true,
-      render: (title) => (
-        <Typography.Text>{title || "-"}</Typography.Text>
-      ),
-    },
-    {
-      title: "Mô tả",
-      dataIndex: "description",
-      key: "description",
-      ellipsis: true,
-      render: (description) => (
-        <Typography.Text type="secondary">
-          {description || "-"}
-        </Typography.Text>
-      ),
+      render: (title) => <Typography.Text>{title || "-"}</Typography.Text>,
     },
     {
       title: "Thao tác",
       key: "actions",
-      width: 150,
+      width: "20%",
       align: "center",
       render: (_, record) => (
-        <Space>
+        <Space size="small">
           <Button
             type="primary"
+            size="small"
             icon={<ArrowRightOutlined />}
             onClick={() => onSelect(record.id)}
           >
             Xem
           </Button>
+
           <Popconfirm
             title="Xóa bài thi này?"
             description="Hành động này không thể hoàn tác."
@@ -73,6 +63,7 @@ const ExerciseTable = ({ exercises, onSelect, onDelete, deletingId }) => {
           >
             <Button
               danger
+              size="small"
               icon={<DeleteOutlined />}
               loading={deletingId === record.id}
             />
@@ -88,13 +79,13 @@ const ExerciseTable = ({ exercises, onSelect, onDelete, deletingId }) => {
       dataSource={exercises}
       rowKey="id"
       pagination={false}
-      onRow={(record) => ({
-        onClick: () => onSelect(record.id),
-        style: { cursor: "pointer" },
-      })}
+      size="middle"
+      // onRow={(record) => ({
+      //   onClick: () => onSelect(record.id),
+      //   style: { cursor: "pointer", height: "60px" },
+      // })}
     />
   );
 };
 
 export default ExerciseTable;
-
