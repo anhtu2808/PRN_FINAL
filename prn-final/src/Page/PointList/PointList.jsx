@@ -28,6 +28,12 @@ const PointList = () => {
   const [deletingId, setDeletingId] = useState(null);
   const navigate = useNavigate();
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    message.success("Đã đăng xuất");
+    navigate("/");
+  };
+
   useEffect(() => {
     const fetchExercises = async () => {
       try {
@@ -104,7 +110,7 @@ const PointList = () => {
         params.Search = searchTerm.trim();
       }
 
-      const res = await axiosInstance.get("/exams", {
+      const res = await axiosInstance.get("me/exams", {
         params,
       });
 
@@ -137,6 +143,7 @@ const PointList = () => {
             viewMode={viewMode}
             onViewChange={setViewMode}
             onCreateTurn={() => navigate("/point-turn")}
+            onLogout={handleLogout}
           />
 
           <Card bodyStyle={{ padding: 24 }}>

@@ -1,8 +1,8 @@
 import React from "react";
 import { Card, Space, Typography, Segmented, Button, Statistic } from "antd";
-import { AppstoreOutlined, OrderedListOutlined, PlusCircleOutlined, TableOutlined } from "@ant-design/icons";
+import { AppstoreOutlined, OrderedListOutlined, PlusCircleOutlined, TableOutlined, LogoutOutlined } from "@ant-design/icons";
 
-const PointListToolbar = ({ totalItems, viewMode, onViewChange, onCreateTurn }) => {
+const PointListToolbar = ({ totalItems, viewMode, onViewChange, onCreateTurn, onLogout }) => {
   return (
     <Card bodyStyle={{ padding: 24 }}>
       <Space
@@ -43,6 +43,13 @@ const PointListToolbar = ({ totalItems, viewMode, onViewChange, onCreateTurn }) 
               onClick={onCreateTurn}
             >
               Tạo lượt chấm mới
+            </Button>
+            <Button
+              danger
+              icon={<LogoutOutlined />}
+              onClick={onLogout}
+            >
+              Đăng xuất
             </Button>
           </Space>
         </Space>
