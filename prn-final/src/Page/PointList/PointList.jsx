@@ -48,7 +48,7 @@ const PointList = () => {
           params.Search = searchTerm.trim();
         }
 
-        const res = await axiosInstance.get("me/exams", {
+        const res = await axiosInstance.get("exams", {
           params,
         });
 
