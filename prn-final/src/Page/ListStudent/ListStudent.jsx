@@ -26,6 +26,7 @@ const ListStudent = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [viewMode, setViewMode] = useState("table");
+  const role = localStorage.getItem("role");
   const [activeStatus, setActiveStatus] = useState(() => {
     const urlStatus = searchParams.get("status");
     return urlStatus && ["ALL", "PARSED", "NOT_FOUND", "GRADED"].includes(urlStatus)
@@ -110,19 +111,18 @@ const ListStudent = () => {
     try {
       setExportLoading(true);
 
-      const response = await axiosInstance.post(
-        `/exams/${examId}/export-excel`,
-        null,
-        {
-          responseType: "blob",
-        }
-      );
+      const response = await axiosInstance.post(`/exams/${examId}/export-excel`);
+
+      const fileUrl = response.data?.data?.url;
+
+      if (!fileUrl) {
+        message.error("Không tìm thấy file để tải.");
+        return;
+      }
 
       // Tải file về
-      const blob = new Blob([response.data], { type: response.headers["content-type"] });
-      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = url;
+      link.href = fileUrl;
 
       // Tên file excel
       link.download = `Export_Exam_${examId}.xlsx`;
@@ -143,8 +143,12 @@ const ListStudent = () => {
   const fetchExportHistory = async () => {
     try {
       const res = await axiosInstance.get(`/exams/${examId}/grade-excel`);
-      if (res.data?.data?.result) {
-        setExportHistory(res.data.data.result);
+      if (Array.isArray(res.data?.data)) {
+        const sorted = [...res.data.data].sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
+
+        setExportHistory(sorted);
       }
     } catch (err) {
       console.error("Lỗi fetch lịch sử export:", err);
@@ -746,15 +750,14 @@ const ListStudent = () => {
               setUploadSection(null);
             }}
             onExport={handleExport}
-
             onViewExportHistory={() => {
               fetchExportHistory();
               setShowExportHistory(true);
             }}
-
             onBack={() => navigate("/point-list")}
             examInfo={examInfo}
             examLoading={examLoading}
+            role={role}
           />
 
           <Card bodyStyle={{ padding: 24 }}>
@@ -894,6 +897,7 @@ const ListStudent = () => {
         onClose={() => setShowExportHistory(false)}
         history={exportHistory}
         formatDate={formatDate}
+        role={role}        
       />
 
     </Layout>

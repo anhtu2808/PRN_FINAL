@@ -21,6 +21,8 @@ const Login = () => {
         const token = response.data?.data?.token || response.data?.token;
         if (token) {
           localStorage.setItem("token", token);
+          localStorage.setItem("role", response.data.data.role);
+          localStorage.setItem("username", response.data.data.username);
         }
         navigate("/point-list");
       }

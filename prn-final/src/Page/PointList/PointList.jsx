@@ -20,6 +20,8 @@ const PointList = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [viewMode, setViewMode] = useState("table");
+  const role = localStorage.getItem("role");
+  const username = localStorage.getItem("username");
   const [pagination, setPagination] = useState({
     totalItems: 0,
     totalPages: 1,
@@ -30,6 +32,8 @@ const PointList = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("username");
     message.success("Đã đăng xuất");
     navigate("/");
   };
@@ -144,6 +148,8 @@ const PointList = () => {
             onViewChange={setViewMode}
             onCreateTurn={() => navigate("/point-turn")}
             onLogout={handleLogout}
+            role={role}
+            username={username}
           />
 
           <Card bodyStyle={{ padding: 24 }}>
