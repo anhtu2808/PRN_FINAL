@@ -107,15 +107,6 @@ const Login = () => {
             Đăng nhập
           </button>
         </form>
-
-        <div className="text-center">
-          <small className="text-muted login-link-text">
-            Chưa có tài khoản?{" "}
-            <a href="/register" className="login-link">
-              Đăng ký ngay
-            </a>
-          </small>
-        </div>
       </div>
     </div>
   );
