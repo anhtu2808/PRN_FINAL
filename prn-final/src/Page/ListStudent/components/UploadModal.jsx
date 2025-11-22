@@ -99,11 +99,11 @@ const DescriptionPanel = (props) => {
       <FileDragger
         file={file}
         fileName={fileName}
-        accept=".txt,.doc,.docx,.pdf"
+        accept=".txt,.doc,.docx,.pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg"
         onFileSelect={onFileSelect}
         onRemove={onRemove}
         disabled={loading}
-        placeholder="Nhấn hoặc kéo thả file mô tả"
+        placeholder="Nhấn hoặc kéo thả file mô tả (hỗ trợ: PDF, Word, TXT, ảnh)"
       />
 
       {file && (
